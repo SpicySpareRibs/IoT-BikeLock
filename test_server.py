@@ -8,12 +8,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # EMQX Serverless credentials
-BROKER = "xxx.emqx.cloud"
+BROKER = "ae9b16fe.ala.asia-southeast1.emqxsl.com"
 PORT = 8883
 CLIENT_ID = "python-server"
-USERNAME = "your_username"
-PASSWORD = "your_password"
-TOPIC = "esp32/signals"
+USERNAME = "BantayBike_Main"
+PASSWORD = "Fear_Magneto"
+TOPIC = "TEST_SIGNALING/mqtt"
 
 # Path to CA certificate
 CA_CERT = "emqxsl-ca.crt"
