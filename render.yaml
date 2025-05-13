@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: esp32-mqtt-server
+    name: CS145_IoT_BantayBike_Server
     env: python
     plan: free
     region: singapore
@@ -8,7 +8,7 @@ services:
     startCommand: python test_server.py
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11
+        value: 3.11.11
       - key: EMQX_BROKER
         sync: false
       - key: EMQX_PORT
