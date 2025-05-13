@@ -7,8 +7,6 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python test_server.py
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.8
       - key: EMQX_BROKER
         sync: false
       - key: EMQX_PORT
