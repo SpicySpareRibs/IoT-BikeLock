@@ -32,6 +32,8 @@ RECONNECT_RATE = 2
 MAX_RECONNECT_COUNT = 12
 MAX_RECONNECT_DELAY = 60
 
+FLAG_EXIT = False # Might be wrong here
+
 # Validate environment variables
 if not all([BROKER, USERNAME, PASSWORD]):
     logger.error("Missing required environment variables (EMQX_BROKER, EMQX_USERNAME, EMQX_PASSWORD)")
@@ -49,6 +51,15 @@ def on_connect(client, userdata, flags, rc, properties=None):
     else:
         logger.error(f"Connection failed with code {rc}")
 
+
+# # MQTT Callbacks
+# def on_connect(client, userdata, flags, rc, properties=None):
+#     if rc == 0:
+#         logger.info("Connected to MQTT Broker!")
+#     else:
+#         logger.error(f"Connection failed with code {rc}")
+
+# Publishing on prototype(might have to change name on function for on_message | Will change to follow proper protocol)
 def on_message(client, userdata, msg):
     try:
         payload = msg.payload.decode('utf-8')
@@ -58,24 +69,73 @@ def on_message(client, userdata, msg):
         data = json.loads(payload)
         value = data.get("value", 0)
         command = "ON" if value > 50 else "OFF"
-        result = client.publish(COMMAND_TOPIC, command, qos=1)
+
+        print(userdata) # Might be wrong here
+
+        result = client.publish(COMMAND_TOPIC, command, qos=1) # Line might be erratic, potentially breaks the server
         if result.rc == mqtt.MQTT_ERR_SUCCESS:
             logger.info(f"Published command: {command} to {COMMAND_TOPIC}")
+            publish(client)
         else:
             logger.error(f"Failed to publish command to {COMMAND_TOPIC}")
     except Exception as e:
         logger.error(f"Error processing message: {e}")
+
+    # client.subscribe(DATA_TOPIC, qos=1)
+    # logger.info(f"Subscribed to {DATA_TOPIC}")
+
 
 def on_connect_fail(client, userdata):
     logger.error("Connection to MQTT broker failed")
 
 def on_disconnect(client, userdata, rc, properties=None):
     global intentional_disconnect  # Ensure global access
+
+    global FLAG_EXIT # Might be wrong here
+    FLAG_EXIT = True # Might be wrong here
+
     if intentional_disconnect:
         logger.info("Intentional disconnection, no reconnection attempted")
         return
     logger.info(f"Unexpected disconnection with result code: {rc}")
     reconnect(client)
+
+
+
+# Currently building
+# THIS PUBLISH FUNCTION WORKS
+
+def publish(client):
+    msg_count = 0
+    while not FLAG_EXIT:
+        msg_dict = {
+            # 'msg': msg_count
+            'msg': "test_echo",
+            'msg2': "I GOT SOMETHING FROM SUSBCRIPTION"
+        }
+        msg = json.dumps(msg_dict)
+        # if not client.is_connected():
+        #     logging.error("publish: MQTT client is not connected!")
+        #     time.sleep(1)
+        #     continue
+        result = client.publish("server_test/publish", msg)
+        # result: [0, 1]
+        status = result[0]
+        if status == 0:
+            logger.info(f'Send `{msg}` to topic server_test/publish')
+        else:
+            logger.info(f'Failed to send message to topic server_test/publish')
+        msg_count += 1
+        time.sleep(1)
+
+        return
+
+
+
+
+
+
+# Separating in_progress line from standby lines
 
 # Reconnection logic
 def reconnect(client):
@@ -168,3 +228,18 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+# TO-DOs:
+#   1. Need to work on Publsihing
+#   2. Need to work on Telemetry System(Topic Publishing and Subscription)
+#   3. Subsequently need to work on back-end logic for the server
+
+
+
+# FOOTNOTES:
+# SUBSCRIPTION WORKS!!!
+# For now, We can use "Online Test" Option to act as the mobile phone interface during testing
+# Search up: https://docs.emqx.com/en/emqx/latest/messaging/mqtt-retained-message.html
