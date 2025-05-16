@@ -1,2 +1,12 @@
 { "message": "ICE_CREAM" }
 { "message": "ICE_CREAM" }
+{ "message": "test" }
+{ "message": "test" }
+server/test: { "message": "test for 3" }
+server/test: { "message": "test for 3" }
+server/test: { "message": "test for 3" }
+server/test: { "message": "test for 3" }
+server/diagnostics/mobile: { "message": "test for 2" }
+server/diagnostics/mobile: { "message": "test for 2" }
+server/diagnostics/esp32: { "message": "test for 1" }
+server/diagnostics/esp32: { "message": "test for 1" }
