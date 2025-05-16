@@ -10,3 +10,13 @@ server/diagnostics/mobile: { "message": "test for 2" }
 server/diagnostics/mobile: { "message": "test for 2" }
 server/diagnostics/esp32: { "message": "test for 1" }
 server/diagnostics/esp32: { "message": "test for 1" }
+server/diagnostics/esp32: { "gps": "LA123 LON 345" }
+server/diagnostics/mobile: { "status": "critical" }
+server/diagnostics/mobile: { "status": "safe" }
+server/test: { "msg": "test" }
+server/test: { "value": "test" }
+server/test: { "value": "test" }
+server/test: { "value": "1" }
+server/test: { "msg": "1" }
+server/test: { "value": 1 }
+server/test: { "value": "1" }

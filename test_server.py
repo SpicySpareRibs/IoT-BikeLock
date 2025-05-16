@@ -4,15 +4,11 @@ import paho.mqtt.client as mqtt
 import ssl
 import logging
 import random
-import time
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
-# import threading
+import time
 import signal
 import sys
-
-# Threading to be implemented soon, NOTE TO SELF: DON'T DO IT YET
-
 
 # Load environment variables
 load_dotenv()
@@ -24,7 +20,6 @@ logger = logging.getLogger(__name__)
 # EMQX Serverless settings
 BROKER = os.getenv("EMQX_BROKER")
 PORT = int(os.getenv("EMQX_PORT", "8883"))
-# DATA_TOPIC = os.getenv("EMQX_DATA_TOPIC", "esp32/data")  # Removed, no longer subscribed
 COMMAND_TOPIC = os.getenv("EMQX_COMMAND_TOPIC", "esp32/command")
 SUBSCRIBE_TOPICS = [
     "server/diagnostics/esp32",
@@ -39,7 +34,7 @@ PUBLISH_TOPICS = [
 USERNAME = os.getenv("EMQX_USERNAME")
 PASSWORD = os.getenv("EMQX_PASSWORD")
 CLIENT_ID = f"python-mqtt-server-{random.randint(0, 1000)}"
-CA_CERT = os.path.join(os.path.dirname(__file__), os.getenv("EMQX_CA_CERT", "emqxsl-ca.crt"))  # Robust path for Render
+CA_CERT = os.path.join(os.path.dirname(__file__), os.getenv("EMQX_CA_CERT", "emqxsl-ca.crt"))
 FIRST_RECONNECT_DELAY = 1
 RECONNECT_RATE = 2
 MAX_RECONNECT_COUNT = 12
@@ -54,17 +49,14 @@ if not all([BROKER, USERNAME, PASSWORD]):
     sys.exit(1)
 
 # MQTT Callbacks
-def on_connect(client, userdata, flags, reason_code, properties=None):
-    if reason_code == 0:
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
         logger.info("Connected to MQTT Broker!")
-        # Subscribe to all topics in SUBSCRIBE_TOPICS
         for topic in SUBSCRIBE_TOPICS:
             client.subscribe(topic, qos=1)
             logger.info(f"Subscribed to {topic}")
-        # Start publishing in a separate thread
-        # threading.Thread(target=publish, daemon=True).start()
     else:
-        logger.error(f"Connection failed with code {reason_code}")
+        logger.error(f"Connection failed with code {rc}")
 
 def on_message(client, userdata, msg):
     try:
@@ -75,31 +67,40 @@ def on_message(client, userdata, msg):
         
         # Parse payload
         data = json.loads(payload)
+        client_id = data.get("client_id", "unknown")
         
         # Handle different topics
+        # STILL BUILFING, NOT FINAL
+
+
+
         if msg.topic == "server/diagnostics/esp32":
-            # Example: Process ESP32 diagnostics (e.g., GPS data)
             gps_data = data.get("gps", {})
             if gps_data:
-                logger.info(f"Processing GPS data: {gps_data}")
-                # TODO: Add GPS handling logic (e.g., validate coordinates, store in DB)
-                # Example response: Send state change to ESP32
-                command = {"state": "updated"}
-                client.publish("esp32/alter/state", json.dumps(command), qos=1)
-                logger.info(f"Published state update to esp32/alter/state")
+                logger.info(f"Processing GPS data from {client_id}: {gps_data}")
+
+                # CURRENTLY BUILDING LOGIC
+
+                # Publish GPS data to esp32/data
+                publish_data(client, {"gps": gps_data, "client_id": client_id})
+                # Publish state update to esp32/alter/state
+                publish_state(client, {"state": "updated", "client_id": client_id})
         
         elif msg.topic == "server/diagnostics/mobile":
-            # Example: Process mobile app diagnostics
             status = data.get("status", "unknown")
-            logger.info(f"Mobile status: {status}")
-            # TODO: Add alert system logic (e.g., notify if status is critical)
+            logger.info(f"Mobile status from {client_id}: {status}")
+            if status == "critical":
+                # Publish alert to esp32/alter/mode
+                publish_mode(client, {"alert": "Critical status detected", "client_id": client_id})
         
         elif msg.topic == "server/test":
-            # Handle test messages
             value = data.get("value", 0)
             command = "ON" if value > 50 else "OFF"
-            client.publish(COMMAND_TOPIC, command, qos=1)
-            logger.info(f"Published command: {command} to {COMMAND_TOPIC}")
+            result = client.publish(COMMAND_TOPIC, command, qos=1)
+            if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                logger.info(f"Published command: {command} to {COMMAND_TOPIC}")
+            else:
+                logger.error(f"Failed to publish command to {COMMAND_TOPIC}")
         
     except Exception as e:
         logger.error(f"Error processing message on {msg.topic}: {e}")
@@ -107,36 +108,42 @@ def on_message(client, userdata, msg):
 def on_connect_fail(client, userdata):
     logger.error("Connection to MQTT broker failed")
 
-def on_disconnect(client, userdata, reason_code, properties=None):
+def on_disconnect(client, userdata, rc):
     global intentional_disconnect
     if intentional_disconnect:
         logger.info("Intentional disconnection, no reconnection attempted")
         return
-    logger.info(f"Unexpected disconnection with result code: {reason_code}")
+    logger.info(f"Unexpected disconnection with result code: {rc}")
     reconnect(client)
 
-# Publish function for telemetry
-def publish(client):
-    msg_count = 0
-    while not intentional_disconnect:  # Use intentional_disconnect instead of FLAG_EXIT
-        msg_dict = {
-            "msg": f"test_echo_{msg_count}",
-            "msg2": "I GOT SOMETHING FROM SUBSCRIPTION"
-        }
-        msg = json.dumps(msg_dict)
-        # Publish to all PUBLISH_TOPICS [FOR TESTING, NOT ACTUAL IMPLEMENTATION. Need to filter out what to send per topic first]
-        for topic in PUBLISH_TOPICS:
-            result = client.publish(topic, msg, qos=1)
-            if result.rc == mqtt.MQTT_ERR_SUCCESS:
-                logger.info(f"Sent `{msg}` to topic {topic}")
-            else:
-                logger.error(f"Failed to send message to topic {topic}")
-        msg_count += 1
-        time.sleep(1)  # Publish every second
+# Separate publish functions for each topic
+# For Sanity Testing("publish_data")
+def publish_data(client, message):
+    topic = "esp32/data"
+    msg = json.dumps(message) if isinstance(message, dict) else str(message)
+    result = client.publish(topic, msg, qos=1)
+    if result.rc == mqtt.MQTT_ERR_SUCCESS:
+        logger.info(f"Sent `{msg}` to topic {topic}")
+    else:
+        logger.error(f"Failed to send message to topic {topic}")
 
+def publish_state(client, message):
+    topic = "esp32/alter/state"
+    msg = json.dumps(message) if isinstance(message, dict) else str(message)
+    result = client.publish(topic, msg, qos=1)
+    if result.rc == mqtt.MQTT_ERR_SUCCESS:
+        logger.info(f"Sent `{msg}` to topic {topic}")
+    else:
+        logger.error(f"Failed to send message to topic {topic}")
 
-
-
+def publish_mode(client, message):
+    topic = "esp32/alter/mode"
+    msg = json.dumps(message) if isinstance(message, dict) else str(message)
+    result = client.publish(topic, msg, qos=1)
+    if result.rc == mqtt.MQTT_ERR_SUCCESS:
+        logger.info(f"Sent `{msg}` to topic {topic}")
+    else:
+        logger.error(f"Failed to send message to topic {topic}")
 
 # Reconnection logic
 def reconnect(client):
@@ -174,11 +181,7 @@ def run_http_server():
 
 # Set up MQTT client
 try:
-    client = mqtt.Client(
-        client_id=CLIENT_ID,
-        protocol=mqtt.MQTTv311,
-        # callback_api_version=mqtt.CallbackAPIVersion.VERSION2  # Fix deprecation warning
-    )
+    client = mqtt.Client(client_id=CLIENT_ID, protocol=mqtt.MQTTv311)
     client.username_pw_set(USERNAME, PASSWORD)
     if not os.path.exists(CA_CERT):
         logger.error(f"CA certificate file not found: {CA_CERT}")
