@@ -23,7 +23,7 @@ PORT = int(os.getenv("EMQX_PORT", "8883"))
 COMMAND_TOPIC = os.getenv("EMQX_COMMAND_TOPIC", "esp32/command")
 SUBSCRIBE_TOPICS = [
     "server/diagnostics/esp32",
-    "server/diagnostics/mobile",
+    "server/request/mobile",
     "server/test"
 ]
 PUBLISH_TOPICS = [
@@ -40,13 +40,20 @@ RECONNECT_RATE = 2
 MAX_RECONNECT_COUNT = 12
 MAX_RECONNECT_DELAY = 60
 
-# Global flag for clean shutdown
+# Global flag for clean shutdown (TLDR: FLAG for SHUTDOWN)
 intentional_disconnect = False
 
 # Validate environment variables
 if not all([BROKER, USERNAME, PASSWORD]):
     logger.error("Missing required environment variables (EMQX_BROKER, EMQX_USERNAME, EMQX_PASSWORD)")
     sys.exit(1)
+
+
+
+
+# -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-
+
+
 
 # MQTT Callbacks
 def on_connect(client, userdata, flags, rc):
@@ -61,6 +68,8 @@ def on_connect(client, userdata, flags, rc):
 def on_message(client, userdata, msg):
     try:
         payload = msg.payload.decode('utf-8')
+
+        # Save and log to "signals.log"
         logger.info(f"Received: {payload} on topic {msg.topic}")
         with open("signals.log", "a") as f:
             f.write(f"{msg.topic}: {payload}\n")
@@ -71,7 +80,6 @@ def on_message(client, userdata, msg):
         
         # Handle different topics
         # STILL BUILFING, NOT FINAL
-
 
 
         if msg.topic == "server/diagnostics/esp32":
@@ -86,12 +94,19 @@ def on_message(client, userdata, msg):
                 # Publish state update to esp32/alter/state
                 publish_state(client, {"state": "updated", "client_id": client_id})
         
-        elif msg.topic == "server/diagnostics/mobile":
-            status = data.get("status", "unknown")
-            logger.info(f"Mobile status from {client_id}: {status}")
-            if status == "critical":
+        elif msg.topic == "server/request/mobile":
+            mode= data.get("mode", "unknown")
+            mode= mode.lower()
+            logger.info(f"Mobile mode request from {client_id}: {mode}")
+            if mode == "unlock":
                 # Publish alert to esp32/alter/mode
-                publish_mode(client, {"alert": "Critical status detected", "client_id": client_id})
+                publish_mode(client, {"mode": "unlock", "client_id": client_id})
+            elif mode == "lock":
+                # Publish alert to esp32/alter/mode
+                publish_mode(client, {"mode": "lock", "client_id": client_id})
+            else:
+                # Handles all other cases, error catching
+                logger.warning(f"Invalid mode request from {client_id}: {mode}")
         
         elif msg.topic == "server/test":
             value = data.get("value", 0)
@@ -102,6 +117,10 @@ def on_message(client, userdata, msg):
             else:
                 logger.error(f"Failed to publish command to {COMMAND_TOPIC}")
         
+
+
+
+
     except Exception as e:
         logger.error(f"Error processing message on {msg.topic}: {e}")
 
@@ -115,6 +134,11 @@ def on_disconnect(client, userdata, rc):
         return
     logger.info(f"Unexpected disconnection with result code: {rc}")
     reconnect(client)
+
+
+
+# -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-
+
 
 # Separate publish functions for each topic
 # For Sanity Testing("publish_data")
@@ -144,6 +168,10 @@ def publish_mode(client, message):
         logger.info(f"Sent `{msg}` to topic {topic}")
     else:
         logger.error(f"Failed to send message to topic {topic}")
+
+
+# -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-
+
 
 # Reconnection logic
 def reconnect(client):
@@ -179,6 +207,12 @@ def run_http_server():
     logger.info(f"Starting HTTP server on port {os.getenv('PORT', 8080)}...")
     httpd.serve_forever()
 
+
+
+
+# -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-
+
+
 # Set up MQTT client
 try:
     client = mqtt.Client(client_id=CLIENT_ID, protocol=mqtt.MQTTv311)
@@ -207,6 +241,10 @@ try:
 except Exception as e:
     logger.error(f"Connection failed: {e}")
     sys.exit(1)
+
+
+# -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-
+
 
 # Signal handler for clean shutdown
 def signal_handler(sig, frame):
