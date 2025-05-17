@@ -20,3 +20,17 @@ server/test: { "value": "1" }
 server/test: { "msg": "1" }
 server/test: { "value": 1 }
 server/test: { "value": "1" }
+server/request/mobile: { "state": "UnLoCK", "client_id": "test_client1" }
+server/request/mobile: { "state": "UnLoCK", "client_id": "test_client1" }
+server/request/mobile: { "state": "UnLoCK", "client_id": "test_client1" }
+server/request/mobile: { "state": "UnLoCK", "client_id": "test_client1" }
+server/request/mobile: { "state": "unlock", "client_id": "test_client1" }
+server/request/mobile: { "state": "UnLoCK", "client_id": "test_client1" }
+server/request/mobile: { "state": "LoCk", "client_id": "test_client1" }
+server/request/mobile: { "state": "LoCk", "client_id": "test_client1" }
+server/request/mobile: { "state": "unLOck", "client_id": "test_client1" }
+server/request/mobile: { "state": "unLOck", "client_id": "test_client1" }
+server/request/mobile: { "state": "LoCk", "client_id": "test_client1" }
+server/request/mobile: { "state": "adwa", "client_id": "test_client1" }
+server/request/mobile: { "state": "UNLock", "client_id": "test_client1" }
+server/diagnostics/esp32: { "gps": "TRASH LOC", "client_id": "test_client1" }

@@ -29,7 +29,8 @@ SUBSCRIBE_TOPICS = [
 PUBLISH_TOPICS = [
     "esp32/data",
     "esp32/alter/state",
-    "esp32/alter/mode"
+    "esp32/alter/mode",
+    "esp32/alter/gps"
 ]
 USERNAME = os.getenv("EMQX_USERNAME")
 PASSWORD = os.getenv("EMQX_PASSWORD")
@@ -68,7 +69,6 @@ def on_connect(client, userdata, flags, rc):
 def on_message(client, userdata, msg):
     try:
         payload = msg.payload.decode('utf-8')
-
         # Save and log to "signals.log"
         logger.info(f"Received: {payload} on topic {msg.topic}")
         with open("signals.log", "a") as f:
@@ -80,33 +80,28 @@ def on_message(client, userdata, msg):
         
         # Handle different topics
         # STILL BUILFING, NOT FINAL
-
-
         if msg.topic == "server/diagnostics/esp32":
             gps_data = data.get("gps", {})
             if gps_data:
                 logger.info(f"Processing GPS data from {client_id}: {gps_data}")
-
                 # CURRENTLY BUILDING LOGIC
-
                 # Publish GPS data to esp32/data
                 publish_data(client, {"gps": gps_data, "client_id": client_id})
                 # Publish state update to esp32/alter/state
                 publish_state(client, {"state": "updated", "client_id": client_id})
         
         elif msg.topic == "server/request/mobile":
-            mode= data.get("mode", "unknown")
-            mode= mode.lower()
-            logger.info(f"Mobile mode request from {client_id}: {mode}")
-            if mode == "unlock":
-                # Publish alert to esp32/alter/mode
-                publish_mode(client, {"mode": "unlock", "client_id": client_id})
-            elif mode == "lock":
-                # Publish alert to esp32/alter/mode
-                publish_mode(client, {"mode": "lock", "client_id": client_id})
+            state = data.get("state", "unknown").lower()
+            logger.info(f"Mobile state request from {client_id}: {state}")
+            if state == "unlock":
+                # Publish alert to esp32/alter/state
+                publish_state(client, {"state": "unlock", "client_id": client_id})
+            elif state == "lock":
+                # Publish alert to esp32/alter/state
+                publish_state(client, {"state": "lock", "client_id": client_id})
             else:
                 # Handles all other cases, error catching
-                logger.warning(f"Invalid mode request from {client_id}: {mode}")
+                logger.warning(f"Invalid state request from {client_id}: {state}")
         
         elif msg.topic == "server/test":
             value = data.get("value", 0)
@@ -117,10 +112,6 @@ def on_message(client, userdata, msg):
             else:
                 logger.error(f"Failed to publish command to {COMMAND_TOPIC}")
         
-
-
-
-
     except Exception as e:
         logger.error(f"Error processing message on {msg.topic}: {e}")
 
@@ -134,7 +125,6 @@ def on_disconnect(client, userdata, rc):
         return
     logger.info(f"Unexpected disconnection with result code: {rc}")
     reconnect(client)
-
 
 
 # -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-
@@ -162,6 +152,15 @@ def publish_state(client, message):
 
 def publish_mode(client, message):
     topic = "esp32/alter/mode"
+    msg = json.dumps(message) if isinstance(message, dict) else str(message)
+    result = client.publish(topic, msg, qos=1)
+    if result.rc == mqtt.MQTT_ERR_SUCCESS:
+        logger.info(f"Sent `{msg}` to topic {topic}")
+    else:
+        logger.error(f"Failed to send message to topic {topic}")
+
+def publish_gps(client, message):
+    topic = "esp32/alter/gps"
     msg = json.dumps(message) if isinstance(message, dict) else str(message)
     result = client.publish(topic, msg, qos=1)
     if result.rc == mqtt.MQTT_ERR_SUCCESS:
@@ -206,8 +205,6 @@ def run_http_server():
     httpd = HTTPServer(server_address, HealthCheckHandler)
     logger.info(f"Starting HTTP server on port {os.getenv('PORT', 8080)}...")
     httpd.serve_forever()
-
-
 
 
 # -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-
