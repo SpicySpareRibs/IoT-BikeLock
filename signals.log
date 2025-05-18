@@ -34,3 +34,20 @@ server/request/mobile: { "state": "LoCk", "client_id": "test_client1" }
 server/request/mobile: { "state": "adwa", "client_id": "test_client1" }
 server/request/mobile: { "state": "UNLock", "client_id": "test_client1" }
 server/diagnostics/esp32: { "gps": "TRASH LOC", "client_id": "test_client1" }
+server/diagnostics/esp32: {"state": "unlock", "client_id": "client_id"}
+server/diagnostics/esp32: {"state": "unlock", "client_id": "client_id"}
+server/diagnostics/esp32: {"state": "unlock", "client_id": "client_id"}
+server/request/mobile: {"state": "unloCk", "client_id": "client_id"}
+server/request/mobile: {"state": "unloCk", "client_id": "client_id"}
+server/request/mobile: {"state": "lock", "client_id": "client_id"}
+server/request/mobile: {"state": "UNloCk", "client_id": "client_id"}
+server/request/mobile: {"state": "UNlocK", "client_id": "client_id"}
+server/request/mobile: {"state": "LOcK", "client_id": "client_id"}
+server/request/mobile: {"state": "LOcadK", "client_id": "client_id"}
+server/request/mobile: {"state": "LoCK", "client_id": "client_id"}
+server/request/mobile: {"state": "UNLOck", "client_id": "client_id"}
+server/diagnostics/esp32: {"state": "UNLOck", "client_id": "client_id"}
+server/request/mobile: {"state": "lock", "client_id": "client_id"}
+server/request/mobile: {"state": "mobile", "client_id": "client_id"}
+server/request/mobile: {"state": "unlock", "client_id": "client_id"}
+server/request/mobile: {"state": "lock", "client_id": "client_id"}

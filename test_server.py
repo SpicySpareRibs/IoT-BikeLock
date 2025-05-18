@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 from dotenv import load_dotenv
 import os
 import paho.mqtt.client as mqtt
@@ -9,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import time
 import signal
 import sys
+from multiprocessing import Process
 
 # Load environment variables
 load_dotenv()
@@ -30,7 +34,8 @@ PUBLISH_TOPICS = [
     "esp32/data",
     "esp32/alter/state",
     "esp32/alter/mode",
-    "esp32/alter/gps"
+    "esp32/alter/gps",
+    "mobile/statistics"
 ]
 USERNAME = os.getenv("EMQX_USERNAME")
 PASSWORD = os.getenv("EMQX_PASSWORD")
@@ -44,22 +49,31 @@ MAX_RECONNECT_DELAY = 60
 # Global flag for clean shutdown (TLDR: FLAG for SHUTDOWN)
 intentional_disconnect = False
 
+# Track last message time for server/diagnostics/esp32
+last_diagnostic_time = None
+
+# Track current ESP32 state
+current_esp32_state = "unknown"
+
+# Initialize HTTP process
+http_process = None
+
+# Track initial connection completion
+initial_connection_complete = False
+
 # Validate environment variables
 if not all([BROKER, USERNAME, PASSWORD]):
     logger.error("Missing required environment variables (EMQX_BROKER, EMQX_USERNAME, EMQX_PASSWORD)")
     sys.exit(1)
 
-
-
-
-# -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-
-
-
+# -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
 
 # MQTT Callbacks
 def on_connect(client, userdata, flags, rc):
+    global initial_connection_complete
     if rc == 0:
         logger.info("Connected to MQTT Broker!")
+        initial_connection_complete = True
         for topic in SUBSCRIBE_TOPICS:
             client.subscribe(topic, qos=1)
             logger.info(f"Subscribed to {topic}")
@@ -67,6 +81,7 @@ def on_connect(client, userdata, flags, rc):
         logger.error(f"Connection failed with code {rc}")
 
 def on_message(client, userdata, msg):
+    global last_diagnostic_time, current_esp32_state
     try:
         payload = msg.payload.decode('utf-8')
         # Save and log to "signals.log"
@@ -89,6 +104,8 @@ def on_message(client, userdata, msg):
                 publish_data(client, {"gps": gps_data, "client_id": client_id})
                 # Publish state update to esp32/alter/state
                 publish_state(client, {"state": "updated", "client_id": client_id})
+            # Update last message time
+            last_diagnostic_time = time.time()
         
         elif msg.topic == "server/request/mobile":
             state = data.get("state", "unknown").lower()
@@ -96,9 +113,11 @@ def on_message(client, userdata, msg):
             if state == "unlock":
                 # Publish alert to esp32/alter/state
                 publish_state(client, {"state": "unlock", "client_id": client_id})
+                current_esp32_state = "unlock"
             elif state == "lock":
                 # Publish alert to esp32/alter/state
                 publish_state(client, {"state": "lock", "client_id": client_id})
+                current_esp32_state = "lock"
             else:
                 # Handles all other cases, error catching
                 logger.warning(f"Invalid state request from {client_id}: {state}")
@@ -119,16 +138,17 @@ def on_connect_fail(client, userdata):
     logger.error("Connection to MQTT broker failed")
 
 def on_disconnect(client, userdata, rc):
-    global intentional_disconnect
+    global intentional_disconnect, initial_connection_complete
     if intentional_disconnect:
         logger.info("Intentional disconnection, no reconnection attempted")
         return
-    logger.info(f"Unexpected disconnection with result code: {rc}")
+    logger.info(f"Unexpected disconnection with result code {rc}")
+    if not initial_connection_complete:
+        logger.info("Initial connection not complete, delaying reconnect")
+        time.sleep(1)
     reconnect(client)
 
-
-# -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-
-
+# -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
 
 # Separate publish functions for each topic
 # For Sanity Testing("publish_data")
@@ -168,9 +188,16 @@ def publish_gps(client, message):
     else:
         logger.error(f"Failed to send message to topic {topic}")
 
+def publish_statistics(client, message):
+    topic = "mobile/statistics"
+    msg = json.dumps(message) if isinstance(message, dict) else str(message)
+    result = client.publish(topic, msg, qos=1)
+    if result.rc == mqtt.MQTT_ERR_SUCCESS:
+        logger.info(f"Sent `{msg}` to topic {topic}")
+    else:
+        logger.error(f"Failed to send message to topic {topic}")
 
-# -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-
-
+# -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
 
 # Reconnection logic
 def reconnect(client):
@@ -180,6 +207,7 @@ def reconnect(client):
         logger.info(f"Reconnecting in {reconnect_delay} seconds...")
         time.sleep(reconnect_delay)
         try:
+            logger.info(f"Connecting to {BROKER}:{PORT}")
             client.reconnect()
             logger.info("Reconnected successfully!")
             return
@@ -206,9 +234,7 @@ def run_http_server():
     logger.info(f"Starting HTTP server on port {os.getenv('PORT', 8080)}...")
     httpd.serve_forever()
 
-
-# -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-
-
+# -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
 
 # Set up MQTT client
 try:
@@ -223,6 +249,8 @@ try:
         tls_version=ssl.PROTOCOL_TLSv1_2
     )
     client.tls_insecure_set(False)
+    client.reconnect_delay_set(min_delay=FIRST_RECONNECT_DELAY, max_delay=MAX_RECONNECT_DELAY)
+    client.enable_logger(logger)  # Enable Paho debug logging
     client.on_connect = on_connect
     client.on_connect_fail = on_connect_fail
     client.on_message = on_message
@@ -231,17 +259,7 @@ except Exception as e:
     logger.error(f"Failed to initialize MQTT client: {e}")
     sys.exit(1)
 
-# Connect to broker
-try:
-    logger.info(f"Connecting to {BROKER}:{PORT}")
-    client.connect(str(BROKER), PORT, keepalive=60)
-except Exception as e:
-    logger.error(f"Connection failed: {e}")
-    sys.exit(1)
-
-
-# -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-
-
+# -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
 
 # Signal handler for clean shutdown
 def signal_handler(sig, frame):
@@ -250,22 +268,60 @@ def signal_handler(sig, frame):
     intentional_disconnect = True
     client.disconnect()
     client.loop_stop()
+    if http_process is not None:
+        http_process.terminate()
     logger.info("MQTT client stopped")
     sys.exit(0)
 
 # Main function
 def main():
+    global http_process, intentional_disconnect
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     try:
-        client.loop_start()
-        run_http_server()
+        # Run HTTP server in a separate process to avoid blocking
+        http_process = Process(target=run_http_server)
+        http_process.start()
+        
+        # Connect to broker
+        logger.info(f"Connecting to {BROKER}:{PORT}")
+        client.connect(str(BROKER), PORT, keepalive=120)
+        
+        # Main loop for MQTT and timeout checking
+        last_alert_time = None
+        while not intentional_disconnect:
+            client.loop(timeout=0.1)  # Process MQTT messages
+            current_time = time.time()
+            
+            # Check for server/diagnostics/esp32 timeout (30 seconds)
+            if (current_esp32_state != "unlock" and
+                last_diagnostic_time is not None and
+                (current_time - last_diagnostic_time) > 30 and
+                (last_alert_time is None or (current_time - last_alert_time) > 30)):
+                # Publish alert to esp32/alter/state
+                publish_state(client, {"state": "alert", "client_id": "server"})
+                # Publish alert to mobile/statistics
+                publish_statistics(client, {
+                    "gps_lat": "unknown",
+                    "gps_lon": "unknown",
+                    "time_sent": "unknown",
+                    "battery_level": "unknown",
+                    "state": "alert"
+                })
+                logger.info(f"Published alert due to no server/diagnostics/esp32 messages for over 30 seconds")
+                last_alert_time = current_time
+            
+            time.sleep(0.1)  # Prevent CPU overload
+        
+        if http_process is not None:
+            http_process.terminate()
     except Exception as e:
         logger.error(f"Error in server: {e}")
-        global intentional_disconnect
         intentional_disconnect = True
         client.disconnect()
         client.loop_stop()
+        if http_process is not None:
+            http_process.terminate()
         sys.exit(1)
 
 if __name__ == "__main__":
