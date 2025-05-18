@@ -13,6 +13,7 @@ import time
 import signal
 import sys
 from multiprocessing import Process
+import math
 
 # Load environment variables
 load_dotenv()
@@ -61,10 +62,36 @@ http_process = None
 # Track initial connection completion
 initial_connection_complete = False
 
+# Track reference GPS coordinates for lock state
+reference_gps_lat = None
+reference_gps_lon = None
+last_diag_esp32 = None
+
+# Track last alert times
+last_alert_time = None
+last_distance_alert_time = None
+
 # Validate environment variables
 if not all([BROKER, USERNAME, PASSWORD]):
     logger.error("Missing required environment variables (EMQX_BROKER, EMQX_USERNAME, EMQX_PASSWORD)")
     sys.exit(1)
+
+# -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
+
+# Haversine function to calculate distance between two GPS points (in meters)
+def haversine(lat1, lon1, lat2, lon2):
+    # Earth's radius in meters
+    R = 6371000
+    # Convert latitude and longitude to radians
+    lat1, lon1, lat2, lon2 = map(math.radians, [float(lat1), float(lon1), float(lat2), float(lon2)])
+    # Differences
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    # Haversine formula
+    a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    distance = R * c
+    return distance
 
 # -/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/-/
 
@@ -81,7 +108,8 @@ def on_connect(client, userdata, flags, rc):
         logger.error(f"Connection failed with code {rc}")
 
 def on_message(client, userdata, msg):
-    global last_diagnostic_time, current_esp32_state, last_alert_time
+    global last_diagnostic_time, current_esp32_state, last_alert_time, last_distance_alert_time
+    global reference_gps_lat, reference_gps_lon, last_diag_esp32
     try:
         payload = msg.payload.decode('utf-8')
         # Save and log to "signals.log"
@@ -94,32 +122,74 @@ def on_message(client, userdata, msg):
         client_id = data.get("client_id", "unknown")
         
         # Handle different topics
-        # STILL BUILFING, NOT FINAL
+        # STILL BUILDING, NOT FINAL
         if msg.topic == "server/diagnostics/esp32":
-            gps_data = data.get("gps", {})
-            if gps_data:
-                logger.info(f"Processing GPS data from {client_id}: {gps_data}")
-                # CURRENTLY BUILDING LOGIC
+            gps_lat = data.get("gps_lat")
+            gps_lon = data.get("gps_lon")
+            if gps_lat and gps_lon:
+                logger.info(f"Processing GPS data from {client_id}: lat={gps_lat}, lon={gps_lon}")
                 # Publish GPS data to esp32/data
-                publish_data(client, {"gps": gps_data, "client_id": client_id})
+                publish_data(client, {"gps": {"lat": gps_lat, "lon": gps_lon}, "client_id": client_id})
                 # Publish state update to esp32/alter/state
-                publish_state(client, {"state": "updated", "client_id": client_id})
+                # publish_state(client, {"state": "updated", "client_id": client_id})
             # Update last message time
             last_diagnostic_time = time.time()
+            last_diag_esp32 = data
         
         elif msg.topic == "server/request/mobile":
+            
+            
+            
             state = data.get("state", "unknown").lower()
             logger.info(f"Mobile state request from {client_id}: {state}")
             if state == "unlock":
                 # Publish alert to esp32/alter/state
                 publish_state(client, {"state": "unlock", "client_id": client_id})
                 current_esp32_state = "unlock"
-                last_alert_time = None  # Reset alert timer
+                last_alert_time = None  # Reset timeout alert timer
+                last_distance_alert_time = None  # Reset distance alert timer
+                reference_gps_lat = None  # Clear reference GPS
+                reference_gps_lon = None
+
+                # Might be wrong with the reset here
+                last_diag_esp32 = None
+
+
             elif state == "lock":
                 # Publish alert to esp32/alter/state
+
+
+                # Sanity Check
+                print("SANITY CHECK TIME: " + str(last_diagnostic_time))
+
+                data = last_diag_esp32
+
+
                 publish_state(client, {"state": "lock", "client_id": client_id})
                 current_esp32_state = "lock"
-                last_alert_time = time.time()  # Reset alert timer
+                last_alert_time = time.time()  # Reset timeout alert timer
+                last_distance_alert_time = None  # Reset distance alert timer
+                # Set reference GPS to latest known coordinates
+                if last_diagnostic_time is not None:
+                    # Assume last diagnostics message had GPS data
+
+
+                    # Sanity Check
+                    print("ENTERED DIAGNOSTIC WINDOW")
+
+                    print("DATA IS: " + str(data))
+
+                    # ERROR HERE(Pyright)
+
+
+                    reference_gps_lat = data.get("gps_lat", reference_gps_lat)
+                    reference_gps_lon = data.get("gps_lon", reference_gps_lon)
+
+                    print("reference_gps_lat: " + str(reference_gps_lat))
+                    print("reference_gps_lon: " + str(reference_gps_lon))
+
+                    if reference_gps_lat and reference_gps_lon:
+                        logger.info(f"Set reference GPS for lock: lat={reference_gps_lat}, lon={reference_gps_lon}")
             else:
                 # Handles all other cases, error catching
                 logger.warning(f"Invalid state request from {client_id}: {state}")
@@ -277,7 +347,8 @@ def signal_handler(sig, frame):
 
 # Main function
 def main():
-    global http_process, intentional_disconnect, last_alert_time
+    global http_process, intentional_disconnect, last_alert_time, last_distance_alert_time
+    global reference_gps_lat, reference_gps_lon
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     try:
@@ -291,9 +362,28 @@ def main():
         
         # Main loop for MQTT and timeout checking
         last_alert_time = None
+        last_distance_alert_time = None
+        last_gps_lat = None
+        last_gps_lon = None
         while not intentional_disconnect:
             client.loop(timeout=0.1)  # Process MQTT messages
             current_time = time.time()
+            
+            # Update last GPS coordinates from diagnostics
+            if last_diagnostic_time is not None:
+                # Access the last message data (simplified, assumes recent diagnostics message)
+                try:
+                    with open("signals.log", "r") as f:
+                        lines = f.readlines()
+                        for line in reversed(lines):
+                            if "server/diagnostics/esp32" in line:
+                                payload = line.split(": ", 1)[1].strip()
+                                data = json.loads(payload)
+                                last_gps_lat = data.get("gps_lat")
+                                last_gps_lon = data.get("gps_lon")
+                                break
+                except Exception as e:
+                    logger.error(f"Error reading signals.log for GPS: {e}")
             
             # Check for server/diagnostics/esp32 timeout (30 seconds)
             if (current_esp32_state != "unlock" and
@@ -312,6 +402,27 @@ def main():
                 })
                 logger.info(f"Published alert due to no server/diagnostics/esp32 messages for over 30 seconds")
                 last_alert_time = current_time
+            
+            # Check for distance-based alert (>10 meters)
+            # Probable Bug Here
+            if (current_esp32_state != "unlock" and
+                reference_gps_lat is not None and reference_gps_lon is not None and
+                last_gps_lat is not None and last_gps_lon is not None and
+                (last_distance_alert_time is None or (current_time - last_distance_alert_time) > 30)):
+                distance = haversine(reference_gps_lat, reference_gps_lon, last_gps_lat, last_gps_lon)
+                if distance > 10:
+                    # Publish alert to esp32/alter/state
+                    publish_state(client, {"state": "alert", "client_id": "server"})
+                    # Publish alert to mobile/statistics
+                    publish_statistics(client, {
+                        "gps_lat": last_gps_lat,
+                        "gps_lon": last_gps_lon,
+                        "time_sent": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        "battery_level": "unknown",
+                        "state": "alert"
+                    })
+                    logger.info(f"Published alert due to movement >10 meters: distance={distance:.2f}m")
+                    last_distance_alert_time = current_time
             
             time.sleep(0.1)  # Prevent CPU overload
         
