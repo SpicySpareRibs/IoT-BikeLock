@@ -81,7 +81,7 @@ def on_connect(client, userdata, flags, rc):
         logger.error(f"Connection failed with code {rc}")
 
 def on_message(client, userdata, msg):
-    global last_diagnostic_time, current_esp32_state
+    global last_diagnostic_time, current_esp32_state, last_alert_time
     try:
         payload = msg.payload.decode('utf-8')
         # Save and log to "signals.log"
@@ -114,10 +114,12 @@ def on_message(client, userdata, msg):
                 # Publish alert to esp32/alter/state
                 publish_state(client, {"state": "unlock", "client_id": client_id})
                 current_esp32_state = "unlock"
+                last_alert_time = None  # Reset alert timer
             elif state == "lock":
                 # Publish alert to esp32/alter/state
                 publish_state(client, {"state": "lock", "client_id": client_id})
                 current_esp32_state = "lock"
+                last_alert_time = time.time()  # Reset alert timer
             else:
                 # Handles all other cases, error catching
                 logger.warning(f"Invalid state request from {client_id}: {state}")
@@ -275,7 +277,7 @@ def signal_handler(sig, frame):
 
 # Main function
 def main():
-    global http_process, intentional_disconnect
+    global http_process, intentional_disconnect, last_alert_time
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     try:
