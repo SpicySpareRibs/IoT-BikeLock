@@ -130,10 +130,14 @@ def on_message(client, userdata, msg):
             gps_lat = data.get("gps_lat")
             gps_lon = data.get("gps_lon")
             curr_battery_level = data.get("battery_level")
+
+            # print(gps_lat)
+            # print(gps_lon)
+
             if gps_lat and gps_lon:
                 logger.info(f"Processing GPS data from {client_id}: lat={gps_lat}, lon={gps_lon}")
                 # Publish GPS data to esp32/data
-                publish_data(client, {"gps": {"lat": gps_lat, "lon": gps_lon}, "client_id": client_id})
+                # publish_data(client, {"gps": {"lat": gps_lat, "lon": gps_lon}, "client_id": client_id})
                 # Publish state update to esp32/alter/state
                 # publish_state(client, {"state": "updated", "client_id": client_id})
                 publish_statistics(client, {

@@ -214,3 +214,8 @@ server/request/mobile: { "state": "unlock", "client_id": "TestClient" }
 server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10}
 server/request/mobile: { "state": "unlock", "client_id": "TestClient" }
 server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10}
+server/request/mobile: { "state": "unlock", "client_id": "test_clientID" }
+server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10}
+server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10}
+server/request/mobile: { "state": "unlock", "client_id": "test_clientID" }
+server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"Low","gps_lat":1,"gps_lon":1}
