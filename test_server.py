@@ -67,6 +67,9 @@ reference_gps_lat = None
 reference_gps_lon = None
 last_diag_esp32 = None
 
+# Track Current Battery Level
+curr_battery_level = None
+
 # Track last alert times
 last_alert_time = None
 last_distance_alert_time = None
@@ -109,7 +112,7 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     global last_diagnostic_time, current_esp32_state, last_alert_time, last_distance_alert_time
-    global reference_gps_lat, reference_gps_lon, last_diag_esp32
+    global reference_gps_lat, reference_gps_lon, last_diag_esp32, curr_battery_level
     try:
         payload = msg.payload.decode('utf-8')
         # Save and log to "signals.log"
@@ -126,12 +129,22 @@ def on_message(client, userdata, msg):
         if msg.topic == "server/diagnostics/esp32":
             gps_lat = data.get("gps_lat")
             gps_lon = data.get("gps_lon")
+            curr_battery_level = data.get("battery_level")
             if gps_lat and gps_lon:
                 logger.info(f"Processing GPS data from {client_id}: lat={gps_lat}, lon={gps_lon}")
                 # Publish GPS data to esp32/data
                 publish_data(client, {"gps": {"lat": gps_lat, "lon": gps_lon}, "client_id": client_id})
                 # Publish state update to esp32/alter/state
                 # publish_state(client, {"state": "updated", "client_id": client_id})
+                publish_statistics(client, {
+                    "gps_lat": gps_lat,
+                    "gps_lon": gps_lon,
+                    "time_sent": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "battery_level": curr_battery_level,
+                    "state": current_esp32_state
+                })
+
+
             # Update last message time
             last_diagnostic_time = time.time()
             last_diag_esp32 = data
@@ -160,7 +173,7 @@ def on_message(client, userdata, msg):
 
 
                 # Sanity Check
-                print("SANITY CHECK TIME: " + str(last_diagnostic_time))
+                # print("SANITY CHECK TIME: " + str(last_diagnostic_time))
 
                 data = last_diag_esp32
 
@@ -175,18 +188,14 @@ def on_message(client, userdata, msg):
 
 
                     # Sanity Check
-                    print("ENTERED DIAGNOSTIC WINDOW")
+                    # print("ENTERED DIAGNOSTIC WINDOW")
 
-                    print("DATA IS: " + str(data))
+                    # print("DATA IS: " + str(data))
 
                     # ERROR HERE(Pyright)
 
-
                     reference_gps_lat = data.get("gps_lat", reference_gps_lat)
                     reference_gps_lon = data.get("gps_lon", reference_gps_lon)
-
-                    print("reference_gps_lat: " + str(reference_gps_lat))
-                    print("reference_gps_lon: " + str(reference_gps_lon))
 
                     if reference_gps_lat and reference_gps_lon:
                         logger.info(f"Set reference GPS for lock: lat={reference_gps_lat}, lon={reference_gps_lon}")
@@ -348,7 +357,7 @@ def signal_handler(sig, frame):
 # Main function
 def main():
     global http_process, intentional_disconnect, last_alert_time, last_distance_alert_time
-    global reference_gps_lat, reference_gps_lon
+    global reference_gps_lat, reference_gps_lon, curr_battery_level
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     try:
@@ -386,6 +395,8 @@ def main():
                     logger.error(f"Error reading signals.log for GPS: {e}")
             
             # Check for server/diagnostics/esp32 timeout (30 seconds)
+
+
             if (current_esp32_state != "unlock" and
                 last_diagnostic_time is not None and
                 (current_time - last_diagnostic_time) > 30 and
@@ -394,10 +405,10 @@ def main():
                 publish_state(client, {"state": "alert", "client_id": "server"})
                 # Publish alert to mobile/statistics
                 publish_statistics(client, {
-                    "gps_lat": "unknown",
-                    "gps_lon": "unknown",
-                    "time_sent": "unknown",
-                    "battery_level": "unknown",
+                    "gps_lat": last_gps_lat,
+                    "gps_lon": last_gps_lon,
+                    "time_sent": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "battery_level": curr_battery_level,
                     "state": "alert"
                 })
                 logger.info(f"Published alert due to no server/diagnostics/esp32 messages for over 30 seconds")
@@ -418,7 +429,7 @@ def main():
                         "gps_lat": last_gps_lat,
                         "gps_lon": last_gps_lon,
                         "time_sent": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "battery_level": "unknown",
+                        "battery_level": curr_battery_level,
                         "state": "alert"
                     })
                     logger.info(f"Published alert due to movement >10 meters: distance={distance:.2f}m")
