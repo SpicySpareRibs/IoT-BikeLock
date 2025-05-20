@@ -73,6 +73,7 @@ curr_battery_level = None
 # Track last alert times
 last_alert_time = None
 last_distance_alert_time = None
+last_wire_alert_time = None
 
 # Validate environment variables
 if not all([BROKER, USERNAME, PASSWORD]):
@@ -111,7 +112,7 @@ def on_connect(client, userdata, flags, rc):
         logger.error(f"Connection failed with code {rc}")
 
 def on_message(client, userdata, msg):
-    global last_diagnostic_time, current_esp32_state, last_alert_time, last_distance_alert_time
+    global last_diagnostic_time, current_esp32_state, last_alert_time, last_distance_alert_time, last_wire_alert_time
     global reference_gps_lat, reference_gps_lon, last_diag_esp32, curr_battery_level
     try:
         payload = msg.payload.decode('utf-8')
@@ -130,33 +131,39 @@ def on_message(client, userdata, msg):
             gps_lat = data.get("gps_lat")
             gps_lon = data.get("gps_lon")
             curr_battery_level = data.get("battery_level")
-
-            # print(gps_lat)
-            # print(gps_lon)
-
+            reason = data.get("reason")
+            
             if gps_lat and gps_lon:
-                logger.info(f"Processing GPS data from {client_id}: lat={gps_lat}, lon={gps_lon}")
-                # Publish GPS data to esp32/data
-                # publish_data(client, {"gps": {"lat": gps_lat, "lon": gps_lon}, "client_id": client_id})
-                # Publish state update to esp32/alter/state
-                # publish_state(client, {"state": "updated", "client_id": client_id})
+                logger.info(f"Processing GPS data from {client_id}: lat={gps_lat}, lon={gps_lon}, reason={reason}")
+                # Publish statistics with current state and reason
                 publish_statistics(client, {
                     "gps_lat": gps_lat,
                     "gps_lon": gps_lon,
                     "time_sent": time.strftime("%Y-%m-%d %H:%M:%S"),
                     "battery_level": curr_battery_level,
-                    "state": current_esp32_state
+                    "state": current_esp32_state,
+                    "reason": reason if reason else "null"
                 })
-
-
+            
+            # Check for wire alert
+            if reason == "wire" and (last_wire_alert_time is None or (time.time() - last_wire_alert_time) > 5):
+                logger.info(f"Wire alert triggered from {client_id}")
+                publish_state(client, {"state": "alert", "client_id": "server"})
+                publish_statistics(client, {
+                    "gps_lat": gps_lat,
+                    "gps_lon": gps_lon,
+                    "time_sent": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "battery_level": curr_battery_level,
+                    "state": "alert",
+                    "reason": "wire"
+                })
+                last_wire_alert_time = time.time()
+            
             # Update last message time
             last_diagnostic_time = time.time()
             last_diag_esp32 = data
         
         elif msg.topic == "server/request/mobile":
-            
-            
-            
             state = data.get("state", "unknown").lower()
             logger.info(f"Mobile state request from {client_id}: {state}")
             if state == "unlock":
@@ -165,42 +172,22 @@ def on_message(client, userdata, msg):
                 current_esp32_state = "unlock"
                 last_alert_time = None  # Reset timeout alert timer
                 last_distance_alert_time = None  # Reset distance alert timer
+                last_wire_alert_time = None  # Reset wire alert timer
                 reference_gps_lat = None  # Clear reference GPS
                 reference_gps_lon = None
-
-                # Might be wrong with the reset here
                 last_diag_esp32 = None
-
-
             elif state == "lock":
                 # Publish alert to esp32/alter/state
-
-
-                # Sanity Check
-                # print("SANITY CHECK TIME: " + str(last_diagnostic_time))
-
                 data = last_diag_esp32
-
-
                 publish_state(client, {"state": "lock", "client_id": client_id})
                 current_esp32_state = "lock"
                 last_alert_time = time.time()  # Reset timeout alert timer
                 last_distance_alert_time = None  # Reset distance alert timer
+                last_wire_alert_time = None  # Reset wire alert timer
                 # Set reference GPS to latest known coordinates
-                if last_diagnostic_time is not None:
-                    # Assume last diagnostics message had GPS data
-
-
-                    # Sanity Check
-                    # print("ENTERED DIAGNOSTIC WINDOW")
-
-                    # print("DATA IS: " + str(data))
-
-                    # ERROR HERE(Pyright)
-
+                if last_diagnostic_time is not None and data:
                     reference_gps_lat = data.get("gps_lat", reference_gps_lat)
                     reference_gps_lon = data.get("gps_lon", reference_gps_lon)
-
                     if reference_gps_lat and reference_gps_lon:
                         logger.info(f"Set reference GPS for lock: lat={reference_gps_lat}, lon={reference_gps_lon}")
             else:
@@ -360,7 +347,7 @@ def signal_handler(sig, frame):
 
 # Main function
 def main():
-    global http_process, intentional_disconnect, last_alert_time, last_distance_alert_time
+    global http_process, intentional_disconnect, last_alert_time, last_distance_alert_time, last_wire_alert_time
     global reference_gps_lat, reference_gps_lon, curr_battery_level
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -376,6 +363,7 @@ def main():
         # Main loop for MQTT and timeout checking
         last_alert_time = None
         last_distance_alert_time = None
+        last_wire_alert_time = None
         last_gps_lat = None
         last_gps_lon = None
         while not intentional_disconnect:
@@ -399,8 +387,6 @@ def main():
                     logger.error(f"Error reading signals.log for GPS: {e}")
             
             # Check for server/diagnostics/esp32 timeout (30 seconds)
-
-
             if (current_esp32_state != "unlock" and
                 last_diagnostic_time is not None and
                 (current_time - last_diagnostic_time) > 30 and
@@ -409,17 +395,17 @@ def main():
                 publish_state(client, {"state": "alert", "client_id": "server"})
                 # Publish alert to mobile/statistics
                 publish_statistics(client, {
-                    "gps_lat": last_gps_lat,
-                    "gps_lon": last_gps_lon,
+                    "gps_lat": last_gps_lat if last_gps_lat else "unknown",
+                    "gps_lon": last_gps_lon if last_gps_lon else "unknown",
                     "time_sent": time.strftime("%Y-%m-%d %H:%M:%S"),
-                    "battery_level": curr_battery_level,
-                    "state": "alert"
+                    "battery_level": curr_battery_level if curr_battery_level else "unknown",
+                    "state": "alert",
+                    "reason": "timeout"
                 })
                 logger.info(f"Published alert due to no server/diagnostics/esp32 messages for over 30 seconds")
                 last_alert_time = current_time
             
             # Check for distance-based alert (>10 meters)
-            # Probable Bug Here
             if (current_esp32_state != "unlock" and
                 reference_gps_lat is not None and reference_gps_lon is not None and
                 last_gps_lat is not None and last_gps_lon is not None and
@@ -433,8 +419,9 @@ def main():
                         "gps_lat": last_gps_lat,
                         "gps_lon": last_gps_lon,
                         "time_sent": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "battery_level": curr_battery_level,
-                        "state": "alert"
+                        "battery_level": curr_battery_level if curr_battery_level else "unknown",
+                        "state": "alert",
+                        "reason": "gps"
                     })
                     logger.info(f"Published alert due to movement >10 meters: distance={distance:.2f}m")
                     last_distance_alert_time = current_time
