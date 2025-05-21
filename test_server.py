@@ -148,7 +148,7 @@ def on_message(client, userdata, msg):
             # Check for wire alert
             if reason == "wire" and (last_wire_alert_time is None or (time.time() - last_wire_alert_time) > 5):
                 logger.info(f"Wire alert triggered from {client_id}")
-                publish_state(client, {"state": "alert", "client_id": "server"})
+                publish_state(client, {"state": "alert", "client_id": "server", "reason": "wire"})
                 publish_statistics(client, {
                     "gps_lat": gps_lat,
                     "gps_lon": gps_lon,
@@ -168,7 +168,7 @@ def on_message(client, userdata, msg):
             logger.info(f"Mobile state request from {client_id}: {state}")
             if state == "unlock":
                 # Publish alert to esp32/alter/state
-                publish_state(client, {"state": "unlock", "client_id": client_id})
+                publish_state(client, {"state": "alert", "client_id": "server", "reason": "null"})
                 current_esp32_state = "unlock"
                 last_alert_time = None  # Reset timeout alert timer
                 last_distance_alert_time = None  # Reset distance alert timer
@@ -179,7 +179,7 @@ def on_message(client, userdata, msg):
             elif state == "lock":
                 # Publish alert to esp32/alter/state
                 data = last_diag_esp32
-                publish_state(client, {"state": "lock", "client_id": client_id})
+                publish_state(client, {"state": "alert", "client_id": "server", "reason": "null"})
                 current_esp32_state = "lock"
                 last_alert_time = time.time()  # Reset timeout alert timer
                 last_distance_alert_time = None  # Reset distance alert timer
@@ -392,7 +392,7 @@ def main():
                 (current_time - last_diagnostic_time) > 30 and
                 (last_alert_time is None or (current_time - last_alert_time) > 30)):
                 # Publish alert to esp32/alter/state
-                publish_state(client, {"state": "alert", "client_id": "server"})
+                publish_state(client, {"state": "alert", "client_id": "server", "reason": "timeout"})
                 # Publish alert to mobile/statistics
                 publish_statistics(client, {
                     "gps_lat": last_gps_lat if last_gps_lat else "unknown",
@@ -413,7 +413,7 @@ def main():
                 distance = haversine(reference_gps_lat, reference_gps_lon, last_gps_lat, last_gps_lon)
                 if distance > 10:
                     # Publish alert to esp32/alter/state
-                    publish_state(client, {"state": "alert", "client_id": "server"})
+                    publish_state(client, {"state": "alert", "client_id": "server", "reason": "gps"})
                     # Publish alert to mobile/statistics
                     publish_statistics(client, {
                         "gps_lat": last_gps_lat,
