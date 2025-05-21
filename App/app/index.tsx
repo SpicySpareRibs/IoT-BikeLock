@@ -26,18 +26,21 @@ export default function HomeScreen() {
   // const [alertBody, setAlertBody] = useState('');
   // const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
 
-  const [lowBatteryVisible, setLowBatteryVisible] = useState(true);
+  const [lowBatteryVisible, setLowBatteryVisible] = useState(false);
+  const hasShownLowBatteryModal = useRef(false);
+  const [fullBatteryVisible, setFullBatteryVisible] = useState(false);
+  const hasShownFullBatteryModal = useRef(false);
+
 
 
   const [locationText, setLocationText] = useState('123 Anywhere St.\nQuezon City');
-  const [batteryLevel, setBatteryLevel] = useState('20%');
+  const [batteryLevel, setBatteryLevel] = useState('50%');
   const [isLocked, setIsLocked] = useState(true);
 
   const [isAlertMode, setIsAlertMode] = useState(true);
   const [alertVisible, setAlertVisible] = useState(true);
   const [alertHeader, setAlertHeader] = useState('Cord Cut Detected!');
   const [alertBody, setAlertBody] = useState('Your BantayBike lock cord was cut. Your bike may be at risk. Real-time location tracking has been activated.');
-  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -101,9 +104,14 @@ export default function HomeScreen() {
             setLocationText(`${addr[0].name || ''} ${addr[0].city || ''}`);
           }
 
-          if (battery_level <= 20) {
+          if (battery_level >= 100 && !hasShownFullBatteryModal.current) {
+            setFullBatteryVisible(true);
+            hasShownFullBatteryModal.current = true;
+          } else if (battery_level <= 20 && !hasShownLowBatteryModal.current) {
             setLowBatteryVisible(true);
+            hasShownLowBatteryModal.current = true;
           }
+
 
           setBatteryLevel(`${battery_level}%`);
         } catch (e) {
@@ -116,7 +124,7 @@ export default function HomeScreen() {
       mqttClient?.end();
       mqttClient = null;
     };
-  }, [locationPermissionGranted]);
+  },);
 
   useEffect(() => {
     Animated.parallel([
@@ -231,11 +239,7 @@ export default function HomeScreen() {
       </Animated.View>
 
       <Text style={styles.lockText}>{isLocked ? 'locked' : 'unlocked'}</Text>
-      <Text style={styles.statusText}>
-        location status: <Text style={isAlertMode ? styles.statusRisk : styles.statusSafe}>
-          {isAlertMode ? 'at risk' : 'safe'}
-        </Text>
-      </Text>
+
 
 
       {isAlertMode && (
@@ -360,6 +364,32 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
+      <Modal
+        visible={fullBatteryVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setFullBatteryVisible(false)}
+      >
+        <View style={styles.modalBackground}>
+          <View style={styles.modalContainer}>
+            <Image
+              source={require('../assets/images/fullbattery.svg')}
+              style={styles.alertImage}
+            />
+            <Text style={styles.alertHeader}>Battery Fully Charged</Text>
+            <Text style={styles.alertBody}>
+              Your BantayBike lock battery is now fully charged. Unplug to prevent overcharging.
+            </Text>
+            <View style={styles.buttonRow}>
+              <Pressable style={styles.dismissButton} onPress={() => setFullBatteryVisible(false)}>
+                <Text style={styles.dismissButtonText}>Dismiss</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+
 
     </View>
   );
@@ -415,7 +445,7 @@ const styles = StyleSheet.create({
     borderRadius: 264,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.1,
@@ -432,19 +462,7 @@ const styles = StyleSheet.create({
     fontFamily: 'worksans-bold',
     fontSize: 20,
     color: '#333',
-    marginBottom: 4,
-  },
-
-  statusText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 40,
-  },
-
-  statusSafe: {
-    fontFamily: 'worksans-semibold',
-    fontWeight: 'bold',
-    color: '#333',
+    marginBottom: 80,
   },
 
   AlertModeBox: {
