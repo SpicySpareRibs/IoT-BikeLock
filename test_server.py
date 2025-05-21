@@ -169,7 +169,7 @@ def on_message(client, userdata, msg):
             logger.info(f"Mobile state request from {client_id}: {state}")
             if state == "unlock":
                 # Publish alert to esp32/alter/state
-                publish_state(client, {"state": "alert", "client_id": "server", "reason": "null"})
+                publish_state(client, {"state": "unlock", "client_id": "server", "reason": "null"})
                 current_esp32_state = "unlock"
                 last_alert_time = None  # Reset timeout alert timer
                 last_distance_alert_time = None  # Reset distance alert timer
@@ -180,7 +180,7 @@ def on_message(client, userdata, msg):
             elif state == "lock":
                 # Publish alert to esp32/alter/state
                 data = last_diag_esp32
-                publish_state(client, {"state": "alert", "client_id": "server", "reason": "null"})
+                publish_state(client, {"state": "lock", "client_id": "server", "reason": "null"})
                 current_esp32_state = "lock"
                 last_alert_time = time.time()  # Reset timeout alert timer
                 last_distance_alert_time = None  # Reset distance alert timer
