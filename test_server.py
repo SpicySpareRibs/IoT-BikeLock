@@ -149,6 +149,7 @@ def on_message(client, userdata, msg):
             if reason == "wire" and (last_wire_alert_time is None or (time.time() - last_wire_alert_time) > 5):
                 logger.info(f"Wire alert triggered from {client_id}")
                 publish_state(client, {"state": "alert", "client_id": "server", "reason": "wire"})
+                current_esp32_state = "alert"
                 publish_statistics(client, {
                     "gps_lat": gps_lat,
                     "gps_lon": gps_lon,
@@ -393,6 +394,7 @@ def main():
                 (last_alert_time is None or (current_time - last_alert_time) > 30)):
                 # Publish alert to esp32/alter/state
                 publish_state(client, {"state": "alert", "client_id": "server", "reason": "timeout"})
+                current_esp32_state = "alert"
                 # Publish alert to mobile/statistics
                 publish_statistics(client, {
                     "gps_lat": last_gps_lat if last_gps_lat else "unknown",
@@ -414,6 +416,7 @@ def main():
                 if distance > 10:
                     # Publish alert to esp32/alter/state
                     publish_state(client, {"state": "alert", "client_id": "server", "reason": "gps"})
+                    current_esp32_state = "alert"
                     # Publish alert to mobile/statistics
                     publish_statistics(client, {
                         "gps_lat": last_gps_lat,
