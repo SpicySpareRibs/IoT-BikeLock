@@ -394,7 +394,7 @@ def main():
                 (last_alert_time is None or (current_time - last_alert_time) > 30)):
                 # Publish alert to esp32/alter/state
                 publish_state(client, {"state": "alert", "client_id": "server", "reason": "timeout"})
-                # current_esp32_state = "alert"
+                current_esp32_state = "alert"
                 # Publish alert to mobile/statistics
                 publish_statistics(client, {
                     "gps_lat": last_gps_lat if last_gps_lat else "unknown",
@@ -416,7 +416,7 @@ def main():
                 if distance > 10:
                     # Publish alert to esp32/alter/state
                     publish_state(client, {"state": "alert", "client_id": "server", "reason": "gps"})
-                    # current_esp32_state = "alert"
+                    current_esp32_state = "alert"
                     # Publish alert to mobile/statistics
                     publish_statistics(client, {
                         "gps_lat": last_gps_lat,
