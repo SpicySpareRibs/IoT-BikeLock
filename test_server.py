@@ -349,7 +349,7 @@ def signal_handler(sig, frame):
 # Main function
 def main():
     global http_process, intentional_disconnect, last_alert_time, last_distance_alert_time, last_wire_alert_time
-    global reference_gps_lat, reference_gps_lon, curr_battery_level
+    global reference_gps_lat, reference_gps_lon, curr_battery_level, current_esp32_state
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     try:
@@ -394,7 +394,7 @@ def main():
                 (last_alert_time is None or (current_time - last_alert_time) > 30)):
                 # Publish alert to esp32/alter/state
                 publish_state(client, {"state": "alert", "client_id": "server", "reason": "timeout"})
-                current_esp32_state = "alert"
+                # current_esp32_state = "alert"
                 # Publish alert to mobile/statistics
                 publish_statistics(client, {
                     "gps_lat": last_gps_lat if last_gps_lat else "unknown",
@@ -416,7 +416,7 @@ def main():
                 if distance > 10:
                     # Publish alert to esp32/alter/state
                     publish_state(client, {"state": "alert", "client_id": "server", "reason": "gps"})
-                    current_esp32_state = "alert"
+                    # current_esp32_state = "alert"
                     # Publish alert to mobile/statistics
                     publish_statistics(client, {
                         "gps_lat": last_gps_lat,
