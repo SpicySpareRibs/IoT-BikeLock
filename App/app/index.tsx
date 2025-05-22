@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Image, StyleSheet, Text, View, Pressable, Modal, Button } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Location from 'expo-location';
 
 global.Buffer = Buffer;
 
@@ -67,7 +68,7 @@ export default function HomeScreen() {
         try {
           const data = JSON.parse(message.toString());
           console.log('Received:', data);
-          const { gps_lat, gps_lon, battery_level, state, reason } = data;
+          const { time_sent, state, gps_lat, gps_lon, battery_level, reason,  client_id } = data;
 
           setIsAlertMode(state === 'alert');
 
@@ -89,33 +90,37 @@ export default function HomeScreen() {
             setAlertVisible(false);
           }
 
-          if (!isNaN(gps_lat) && !isNaN(gps_lon)) {
-            const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${gps_lat}&lon=${gps_lon}`
-            );
-            const json = await response.json();
-            if (json && json.address) {
-              const { road, neighbourhood, suburb, city, town, state, country } = json.address;
-              const addressParts = [road, neighbourhood, suburb, "\n" + city || town, state, country];
-              const address = addressParts.filter(Boolean).join(', ');
-              setLocationText(address || 'Unknown Location');
-            } else {
-              setLocationText('Unknown Location');
-            }
-          } else {
-            setLocationText('Invalid Coordinates');
-          }
+          // if (!isNaN(gps_lat) && !isNaN(gps_lon)) {
+          //   const response = await fetch(
+          //     `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${gps_lat}&lon=${gps_lon}`
+          //   );
+          //   const addr = await Location.reverseGeocodeAsync({ latitude: gps_lat, longitude: gps_lon });
+          //     if (addr && addr.length > 0) {
+          //       const { name, street, city, region, country } = addr[0];
+          //       const locationStr = [name, street, city, region, country].filter(Boolean).join(', ');
+          //       setLocationText(locationStr);
+          //       console.log('Check address:', locationStr);
+          //     } else {
+          //       setLocationText('Unknown location');
+          //     }
+          //   } catch (err) {
+          //     console.error('Error parsing MQTT or geocoding:', err);
+          //     setLocationText('Error fetching address');
+          //   }
 
-          if (battery_level >= 100 && !hasShownFullBatteryModal.current) {
+
+
+
+          if (battery_level == 'high' && !hasShownFullBatteryModal.current) {
             setFullBatteryVisible(true);
             hasShownFullBatteryModal.current = true;
-          } else if (battery_level <= 20 && !hasShownLowBatteryModal.current) {
+          } else if (battery_level == 'low' && !hasShownLowBatteryModal.current) {
             setLowBatteryVisible(true);
             hasShownLowBatteryModal.current = true;
           }
 
 
-          setBatteryLevel(`${battery_level}%`);
+          setBatteryLevel(battery_level);
         } catch (e) {
           console.error('Error parsing message:', e);
         }
@@ -190,12 +195,12 @@ export default function HomeScreen() {
   };
 
   const batteryPercentage = parseInt(batteryLevel.replace('%', ''));
-  let batteryIcon = require('../assets/images/fullbattery.svg');
+  let batteryIcon = require('../assets/images/fullbattery.png');
 
   if (batteryPercentage <= 20) {
-    batteryIcon = require('../assets/images/lowbattery.svg');
+    batteryIcon = require('../assets/images/lowbattery.png');
   } else if (batteryPercentage <= 60) {
-    batteryIcon = require('../assets/images/halfbattery.svg');
+    batteryIcon = require('../assets/images/halfbattery.png');
   } 
 
   if (!fontsLoaded) return null;
@@ -203,7 +208,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.headerContainer}>
-        <Image source={require('../assets/images/BantayBike_logo.svg')} style={styles.logoIcon} />
+        <Image source={require('../assets/images/BantayBike_logo.png')} style={styles.logoIcon} />
         <Text style={styles.header}>BantayBike</Text>
       </View>
 
@@ -223,8 +228,8 @@ export default function HomeScreen() {
             <Animated.Image
               source={
                 isLocked
-                  ? require('../assets/images/locked.svg')
-                  : require('../assets/images/unlocked.svg')
+                  ? require('../assets/images/locked.png')
+                  : require('../assets/images/unlocked.png')
               }
               style={[styles.lockIcon, { transform: [{ scale: scaleAnim }] }]}
             />
@@ -262,7 +267,7 @@ export default function HomeScreen() {
               style={styles.AlertModeBox}
             >
               <View style={styles.AlertmodeContainer}>
-                <Image source={require('../assets/images/alert_white.svg')} style={styles.AlertIcon} />
+                <Image source={require('../assets/images/alert_white.png')} style={styles.AlertIcon} />
                 <Text style={styles.AlertLabel}> Alert Mode</Text>
               </View>
             </LinearGradient>
@@ -289,7 +294,7 @@ export default function HomeScreen() {
             >
               <View style={styles.locationHeader}>
                 <View style={styles.locationIconandText}>
-                  <Image source={require('../assets/images/location_normal.svg')} style={styles.locationIcon} />
+                  <Image source={require('../assets/images/location_normal.png')} style={styles.locationIcon} />
                   <Text style={styles.locationLabel}> Location</Text>
                 </View>
                 <Text style={styles.arrow}>›</Text>
@@ -310,7 +315,7 @@ export default function HomeScreen() {
         <View style={styles.modalBackground}>
           <View style={styles.modalContainer}>
             <Image
-              source={require('../assets/images/alert_black.svg')}
+              source={require('../assets/images/alert_black.png')}
               style={styles.alertImage}
             />
             <Text style={styles.alertHeader}>{alertHeader}</Text>
@@ -343,7 +348,7 @@ export default function HomeScreen() {
         <View style={styles.modalBackground}>
           <View style={styles.modalContainer}>
             <Image
-              source={require('../assets/images/lowbattery.svg')}
+              source={require('../assets/images/lowbattery.png')}
               style={styles.alertImage}
             />
             <Text style={styles.alertHeader}>Low Battery – Charge Soon</Text>
@@ -368,7 +373,7 @@ export default function HomeScreen() {
         <View style={styles.modalBackground}>
           <View style={styles.modalContainer}>
             <Image
-              source={require('../assets/images/fullbattery.svg')}
+              source={require('../assets/images/fullbattery.png')}
               style={styles.alertImage}
             />
             <Text style={styles.alertHeader}>Battery Fully Charged</Text>

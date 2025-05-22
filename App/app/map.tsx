@@ -4,6 +4,7 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import type { WebView as WebViewType } from 'react-native-webview';
 import * as maptilersdk from '@maptiler/sdk';
+import mqtt from 'mqtt';
 
 export default function MapScreen() {
   const webviewRef = useRef<WebViewType>(null);
@@ -51,77 +52,78 @@ export default function MapScreen() {
     </html>
   `;
 
-  // useEffect(() => {
-  //   const client = mqtt.connect('wss://ae9b16fe.ala.asia-southeast1.emqxsl.com:8084/mqtt', {
-  //     username: 'BantayBike_Mobile',
-  //     password: '12345678',
-  //   });
-
-  //   client.on('connect', () => {
-  //     console.log('Connected to MQTT');
-  //     setConnected(true);
-  //     client.subscribe('mobile/statistics');
-  //   });
-
-  //   client.on('message', async (topic, message) => {
-  //     if (topic === 'mobile/statistics') {
-  //       try {
-  //         const data = JSON.parse(message.toString());
-
-  //         //Add log to inspect raw JSON data
-  //         console.log('Parsed MQTT message:', data);
-
-  //         const { gps_lat, gps_lon, battery_level } = data;
-
-  //         const lat = parseFloat(gps_lat);
-  //         const lon = parseFloat(gps_lon);
-
-  //         console.log(`Parsed coordinates: Latitude=${lat}, Longitude=${lon}, Battery=${battery_level}`);
-
-  //         if (isNaN(lat) || isNaN(lon)) {
-  //           console.warn('Invalid coordinates received');
-  //           return;
-  //         }
-
-  //         setCoordinates({ lat, lon });
-
-  //         const { status } = await Location.requestForegroundPermissionsAsync();
-  //         if (status !== 'granted') {
-  //           console.warn('Location permission denied');
-  //           setAddress('Permission denied');
-  //           return;
-  //         }
-
-  //         const addr = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lon });
-  //         if (addr && addr.length > 0) {
-  //           const { name, street, city, region, country } = addr[0];
-  //           const locationStr = [name, street, city, region, country].filter(Boolean).join(', ');
-  //           setAddress(locationStr);
-  //         } else {
-  //           setAddress('Unknown location');
-  //         }
-  //       } catch (err) {
-  //         console.error('Error parsing MQTT or geocoding:', err);
-  //         setAddress('Error fetching address');
-  //       }
-  //     }
-  //   });
-
-
-  //   return () => {
-  //     client.end();
-  //   };
-  // }, []);
-
-
-
   useEffect(() => {
-    // test coordinates
-    const testLat = 14.648731271995985;
-    const testLon = 121.06875036169166;
-    setCoordinates({ lat: testLat, lon: testLon });
-    setAddress('Alumni Engineers Centennial Hall, UP Diliman');
+    const client = mqtt.connect('wss://ae9b16fe.ala.asia-southeast1.emqxsl.com:8084/mqtt', {
+      username: 'BantayBike_Mobile',
+      password: '12345678',
+    });
+
+    client.on('connect', () => {
+      console.log('Connected to MQTT');
+      setConnected(true);
+      client.subscribe('mobile/statistics');
+    });
+
+    client.on('message', async (topic, message) => {
+      if (topic === 'mobile/statistics') {
+        try {
+          const data = JSON.parse(message.toString());
+
+          //Add log to inspect raw JSON data
+          console.log('Parsed MQTT message:', data);
+
+          const { gps_lat, gps_lon, battery_level } = data;
+
+          const lat = parseFloat(gps_lat);
+          const lon = parseFloat(gps_lon);
+
+          console.log(`Parsed coordinates: Latitude=${lat}, Longitude=${lon}, Battery=${battery_level}`);
+
+          if (isNaN(lat) || isNaN(lon)) {
+            console.warn('Invalid coordinates received');
+            return;
+          }
+
+          setCoordinates({ lat, lon });
+
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') {
+            console.warn('Location permission denied');
+            setAddress('Permission denied');
+            return;
+          }
+
+          const addr = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lon });
+          if (addr && addr.length > 0) {
+            const { name, street, city, region, country } = addr[0];
+            const locationStr = [name, street, city, region, country].filter(Boolean).join(', ');
+            setAddress(locationStr);
+            console.log('Check address:', locationStr);
+          } else {
+            setAddress('Unknown location');
+          }
+        } catch (err) {
+          console.error('Error parsing MQTT or geocoding:', err);
+          setAddress('Error fetching address');
+        }
+      }
+    });
+
+
+    return () => {
+      client.end();
+    };
   }, []);
+
+
+
+  // useEffect(() => {
+  //   // test coordinates
+  //   const testLat = 14.648731271995985;
+  //   const testLon = 121.06875036169166;
+  //   setCoordinates({ lat: testLat, lon: testLon });
+  //   setAddress('Alumni Engineers Centennial Hall, UP Diliman');
+  // }, []);
 
   return (
     <View style={styles.container}>
