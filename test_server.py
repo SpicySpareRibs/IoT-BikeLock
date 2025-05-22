@@ -162,6 +162,7 @@ def on_message(client, userdata, msg):
             gps_lon = data.get("gps_lon")
             curr_battery_level = data.get("battery_level")
             reason = data.get("reason")
+            current_esp32_state = data.get("state") # Bugfix Latest
             
             # Validate and convert GPS coordinates
             try:
@@ -209,7 +210,7 @@ def on_message(client, userdata, msg):
             last_diag_esp32 = data
         
         elif msg.topic == "server/request/mobile":
-            state = data.get("state", "unknown").lower()
+            state = data.get("state").lower()
             logger.info(f"Mobile state request from {client_id}: {state}")
             if state == "unlock":
                 # Publish alert to esp32/alter/state
@@ -484,6 +485,7 @@ def main():
                 last_gps_lat is not None and last_gps_lon is not None and
                 (last_distance_alert_time is None or (current_time - last_distance_alert_time) > 30)):
                 distance = haversine(reference_gps_lat, reference_gps_lon, last_gps_lat, last_gps_lon)
+                # print("distance is: " + str(distance))
                 if distance > 10:
                     # Publish alert to esp32/alter/state
                     publish_state(client, {"state": "alert", "client_id": "server", "reason": "gps"})
