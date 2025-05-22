@@ -220,3 +220,97 @@ server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":
 server/request/mobile: { "state": "unlock", "client_id": "test_clientID" }
 server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"Low","gps_lat":1,"gps_lon":1}
 server/request/mobile: {"state":"Unlock"}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10}
+server/request/mobile: {"state": "unlock", "client_id": "pseudo_mobile"}
+server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10}
+server/request/mobile: {"state": "unlock", "client_id": "pseudo_mobile"}
+server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10}
+server/request/mobile: {"state": "lock", "client_id": "pseudo_mobile"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"Low","gps_lat":20,"gps_lon":20}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":20,"gps_lon":20}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":20,"gps_lon":20}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":20,"gps_lon":20}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":20,"gps_lon":20}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":20,"gps_lon":20}
+server/request/mobile: {"state": "lock", "client_id": "pseudo_mobile"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"Low","gps_lat":20,"gps_lon":20}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"Low","gps_lat":20,"gps_lon":20}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"Low","gps_lat":20,"gps_lon":20}
+server/request/mobile: {"state": "unlock", "client_id": "pseudo_mobile"}
+server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"Low","gps_lat":1,"gps_lon":1}
+server/request/mobile: {"state": "unlock", "client_id": "pseudo_mobile"}
+server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"Low","gps_lat":1,"gps_lon":1,"reason":"null"}
+server/request/mobile: {"state": "lock", "client_id": "pseudo_mobile"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"Low","gps_lat":1,"gps_lon":1,"reason":"null"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"Low","gps_lat":1,"gps_lon":1,"reason":"null"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"Low","gps_lat":1,"gps_lon":1,"reason":"null"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10,"reason":"null"}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10,"reason":"gps"}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10,"reason":"Low"}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10,"reason":"Low"}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10,"reason":"Low"}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10,"reason":"Low"}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10,"reason":"Low"}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10,"reason":"Low"}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10,"reason":"gps"}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10,"reason":"Low"}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10,"reason":"Low"}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10,"reason":"Low"}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10,"reason":"Low"}
+server/request/mobile: {"state": "unlock", "client_id": "pseudo_mobile"}
+server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"Low","gps_lat":10,"gps_lon":10,"reason":"null"}
+server/request/mobile: { "state": "unlock", "client_id": "test_client" }
+server/request/mobile: { "state": "lock", "client_id": "test_client" }
+server/request/mobile: { "state": "unlock", "client_id": "test_client" }
+server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":"null"}
+server/request/mobile: { "state": "lock", "client_id": "test_client" }
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":"null"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":"null"}
+server/request/mobile: { "state": "unlock", "client_id": "test_client" }
+server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":"null"}
+server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"low","gps_lat":10,"gps_lon":10,"reason":"null"}
+server/request/mobile: {"state": "unlock", "client_id": "pseudo_mobile"}
+server/request/mobile: {"state": "lock", "client_id": "pseudo_mobile"}
+server/request/mobile: {"state": "unlock", "client_id": "pseudo_mobile"}
+server/request/mobile: {"state": "unlock", "client_id": "pseudo_mobile"}
+server/request/mobile: {"state": "unlock", "client_id": "pseudo_mobile"}
+server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":"null"}
+server/request/mobile: {"state": "lock", "client_id": "pseudo_mobile"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":"null"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":"null"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":"tery_level\":\"low\",\"gps_lat\":1,\"gps_lon\":1,\"reason\":\"null\"}"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":""}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":""}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":""}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":""}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":""}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":10,"gps_lon":10,"reason":""}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":10,"gps_lon":10,"reason":"tery_level\":\"low\",\"gps_lat\":10,\"gps_lon\":10,\"reason\":\"\"}"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":10,"gps_lon":10,"reason":"tery_level\":\"low\",\"gps_lat\":10,\"gps_lon\":10,\"reason\":\"tery_level\\\":\\\"low\\\",\\\"gps_lat"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":10,"gps_lon":10,"reason":""}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":10,"gps_lon":10,"reason":""}
+server/request/mobile: {"state": "unlock", "client_id": "pseudo_mobile"}
+server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"low","gps_lat":10,"gps_lon":10,"reason":"null"}
+server/request/mobile: {"state": "unlock", "client_id": "pseudo_mobile"}
+server/diagnostics/esp32: {"state":"unlock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":"null"}
+server/request/mobile: {"state": "lock", "client_id": "pseudo_mobile"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":"null"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":"null"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":""}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":1,"gps_lon":1,"reason":""}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":10,"gps_lon":10,"reason":""}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"low","gps_lat":10,"gps_lon":10,"reason":"gps"}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"low","gps_lat":10,"gps_lon":10,"reason":"low"}
+server/diagnostics/esp32: {"state":"alert","client_id":"ESP32","battery_level":"low","gps_lat":10,"gps_lon":10,"reason":"low"}
+server/request/mobile: {"state": "lock", "client_id": "pseudo_mobile"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":10,"gps_lon":10,"reason":"null"}
+server/diagnostics/esp32: {"state":"lock","client_id":"ESP32","battery_level":"low","gps_lat":10,"gps_lon":10,"reason":"null"}
