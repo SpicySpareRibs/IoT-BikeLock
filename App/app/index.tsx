@@ -109,6 +109,30 @@ export default function HomeScreen() {
           //   }
 
 
+          if (!isNaN(gps_lat) && !isNaN(gps_lon)) {
+            try {
+              const addr = await Location.reverseGeocodeAsync({
+                latitude: gps_lat,
+                longitude: gps_lon
+              });
+
+              if (addr && addr.length > 0) {
+                const { name, street, city, region, country } = addr[0];
+                const locationStr = [name, street, city, region, country]
+                  .filter(Boolean)
+                  .join(', ');
+                setLocationText(locationStr);
+                console.log('Check address:', locationStr);
+              } else {
+                setLocationText('Unknown location');
+              }
+            } catch (err) {
+              console.error('Error parsing MQTT or geocoding:', err);
+              setLocationText('Error fetching address');
+            }
+          }
+
+
 
 
           if (battery_level == 'high' && !hasShownFullBatteryModal.current) {
@@ -328,7 +352,7 @@ export default function HomeScreen() {
               <Pressable
                 style={styles.trackButton}
                 onPress={() => {
-                  setAlertVisible(false);
+                  setAlertVisible(false); router.push('/map');
                   // Navigate to location
                 }}
               >
@@ -430,12 +454,12 @@ const styles = StyleSheet.create({
   batteryIcon: {
     width: 24,
     height: 24,
-    marginBottom: 4,
+    marginBottom: 0,
   },
 
   batteryText: {
     fontFamily: 'worksans-semibold',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
   },
 

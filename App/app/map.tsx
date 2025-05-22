@@ -6,6 +6,7 @@ import type { WebView as WebViewType } from 'react-native-webview';
 import * as maptilersdk from '@maptiler/sdk';
 import mqtt from 'mqtt';
 
+
 export default function MapScreen() {
   const webviewRef = useRef<WebViewType>(null);
   const [coordinates, setCoordinates] = useState({ lat: 0, lon: 0 });
@@ -129,7 +130,8 @@ export default function MapScreen() {
     <View style={styles.container}>
       <View style={styles.infoBox}>
         <Text style={styles.infoText}>{address}</Text>
-        <Text style={styles.infoText}>MQTT: {connected ? 'Connected' : 'Disconnected'}</Text>
+        {/* <Text style={styles.infoText}>MQTT: {connected ? 'Connected' : 'Disconnected'}</Text> */}
+        
       </View>
 
       <WebView
@@ -146,7 +148,7 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   infoBox: {
-    backgroundColor: '#00573f',
+    backgroundColor: '#989FCB',
     padding: 10,
   },
   infoText: {
