@@ -28,7 +28,6 @@ BROKER = os.getenv("EMQX_BROKER")
 PORT = int(os.getenv("EMQX_PORT", "8883"))
 COMMAND_TOPIC = os.getenv("EMQX_COMMAND_TOPIC", "esp32/command")
 SUBSCRIBE_TOPICS = [
-    "server/diagnostics/esp32",
     "server/request/mobile",
     "server/test"
 ]
@@ -51,7 +50,7 @@ MAX_RECONNECT_DELAY = 60
 # Global flag for clean shutdown
 intentional_disconnect = False
 
-# Track last message time for server/diagnostics/esp32
+# Track last message time for diagnostics
 last_diagnostic_time = None
 
 # Track current ESP32 state
@@ -145,107 +144,44 @@ def on_connect(client, userdata, flags, rc):
         logger.error(f"Connection failed with code {rc}")
 
 def on_message(client, userdata, msg):
-    global last_diagnostic_time, current_esp32_state, last_alert_time, last_distance_alert_time, last_wire_alert_time
+    global last_alert_time, last_distance_alert_time, last_wire_alert_time
     global reference_gps_lat, reference_gps_lon, last_diag_esp32, curr_battery_level, timeout_status
     try:
         payload = msg.payload.decode('utf-8')
-        # Save and log to "signals.log"
         logger.info(f"Received: {payload} on topic {msg.topic}")
         with open("signals.log", "a") as f:
             f.write(f"{msg.topic}: {payload}\n")
         
-        # Parse payload
         data = json.loads(payload)
         client_id = data.get("client_id", "unknown")
         
-        # Handle different topics
-        if msg.topic == "server/diagnostics/esp32":
-            gps_lat = data.get("gps_lat")
-            gps_lon = data.get("gps_lon")
-            curr_battery_level = data.get("battery_level")
-            reason = data.get("reason")
-
-            if timeout_status == True:
-                current_esp32_state = "alert"
-            else:
-                current_esp32_state = data.get("state") # Bugfix Latest
-            
-            # Validate and convert GPS coordinates
-            try:
-                gps_lat = float(gps_lat) if gps_lat and gps_lat != "unknown" else None
-                gps_lon = float(gps_lon) if gps_lon and gps_lon != "unknown" else None
-            except (ValueError, TypeError) as e:
-                logger.warning(f"Invalid GPS data: lat={gps_lat}, lon={gps_lon}, error={e}")
-                gps_lat, gps_lon = None, None
-            
-            # Insert into database
-            try:
-                conn = sqlite3.connect(DB_PATH)
-                cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    INSERT INTO statistics (time, state, gps_lat, gps_lon, battery_level, reason, client_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        time.strftime("%Y-%m-%d %H:%M:%S"),
-                        current_esp32_state,
-                        gps_lat,
-                        gps_lon,
-                        str(curr_battery_level) if curr_battery_level is not None else "unknown",
-                        reason if reason else "null",
-                        client_id
-                    )
-                )
-                conn.commit()
-                logger.info(f"Stored diagnostics in database: time={time.strftime('%Y-%m-%d %H:%M:%S')}, state={current_esp32_state}, client_id={client_id}")
-            except sqlite3.Error as e:
-                logger.error(f"Failed to store diagnostics in database: {e}")
-            finally:
-                conn.close()
-            
-            # Check for wire alert
-            if reason == "wire" and (last_wire_alert_time is None or (time.time() - last_wire_alert_time) > 5):
-                logger.info(f"Wire alert triggered from {client_id}")
-                publish_state(client, {"state": "alert", "client_id": "server", "reason": "wire"})
-                current_esp32_state = "alert"
-                last_wire_alert_time = time.time()
-            
-            # Update last message time
-            last_diagnostic_time = time.time()
-            last_diag_esp32 = data
-        
-        elif msg.topic == "server/request/mobile":
+        if msg.topic == "server/request/mobile":
             state = data.get("state").lower()
             logger.info(f"Mobile state request from {client_id}: {state}")
             if state == "unlock":
-                # Publish alert to esp32/alter/state
                 publish_state(client, {"state": "unlock", "client_id": "server", "reason": "null"})
                 current_esp32_state = "unlock"
-                last_alert_time = None  # Reset timeout alert timer
-                last_distance_alert_time = None  # Reset distance alert timer
-                last_wire_alert_time = None  # Reset wire alert timer
-                reference_gps_lat = None  # Clear reference GPS
+                last_alert_time = None
+                last_distance_alert_time = None
+                last_wire_alert_time = None
+                reference_gps_lat = None
                 reference_gps_lon = None
                 last_diag_esp32 = None
                 timeout_status = False
             elif state == "lock":
-                # Publish alert to esp32/alter/state
                 data = last_diag_esp32
                 publish_state(client, {"state": "lock", "client_id": "server", "reason": "null"})
                 current_esp32_state = "lock"
-                last_alert_time = time.time()  # Reset timeout alert timer
-                last_distance_alert_time = None  # Reset distance alert timer
-                last_wire_alert_time = None  # Reset wire alert timer
+                last_alert_time = time.time()
+                last_distance_alert_time = None
+                last_wire_alert_time = None
                 timeout_status = False
-                # Set reference GPS to latest known coordinates
                 if last_diagnostic_time is not None and data:
                     reference_gps_lat = data.get("gps_lat", reference_gps_lat)
                     reference_gps_lon = data.get("gps_lon", reference_gps_lon)
                     if reference_gps_lat and reference_gps_lon:
                         logger.info(f"Set reference GPS for lock: lat={reference_gps_lat}, lon={reference_gps_lon}")
             else:
-                # Handles all other cases, error catching
                 logger.warning(f"Invalid state request from {client_id}: {state}")
         
         elif msg.topic == "server/test":
@@ -371,13 +307,120 @@ def reconnect(client):
         logger.error(f"Reconnect failed after {reconnect_count} attempts. Exiting...")
         sys.exit(1)
 
-# HTTP Server for Render Health Checks
+# HTTP Server for Render Health Checks and ESP32 Communication
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/plain")
-        self.end_headers()
-        self.wfile.write(b"Server is running")
+        if self.path == "/commands":
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            response = {
+                "state": current_esp32_state,
+                "client_id": "server",
+                "reason": "null"
+            }
+            self.wfile.write(json.dumps(response).encode('utf-8'))
+            logger.info(f"ESP32 polled /commands, returned state: {current_esp32_state}")
+        else:
+            self.send_response(200)
+            self.send_header("Content-type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"Server is running")
+
+    def do_POST(self):
+        global current_esp32_state
+        if self.path == "/diagnostics":
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length).decode('utf-8')
+                data = json.loads(post_data)
+                client_id = data.get("client_id", "unknown")
+                gps_lat = data.get("gps_lat")
+                gps_lon = data.get("gps_lon")
+                battery_level = data.get("battery_level")
+                state = data.get("state")
+                reason = data.get("reason")
+
+                global last_diagnostic_time, last_diag_esp32, curr_battery_level, timeout_status, client
+                logger.info(f"Received POST /diagnostics from {client_id}: {post_data}")
+                with open("signals.log", "a") as f:
+                    f.write(f"POST /diagnostics: {post_data}\n")
+                
+                # Validate and convert GPS coordinates
+                try:
+                    gps_lat = float(gps_lat) if gps_lat and gps_lat != "unknown" else None
+                    gps_lon = float(gps_lon) if gps_lon and gps_lon != "unknown" else None
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Invalid GPS data: lat={gps_lat}, lon={gps_lon}, error={e}")
+                    gps_lat, gps_lon = None, None
+                
+                # Store in database
+                try:
+                    conn = sqlite3.connect(DB_PATH)
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        """
+                        INSERT INTO statistics (time, state, gps_lat, gps_lon, battery_level, reason, client_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            time.strftime("%Y-%m-%d %H:%M:%S"),
+                            state if state else current_esp32_state,
+                            gps_lat,
+                            gps_lon,
+                            str(battery_level) if battery_level is not None else "unknown",
+                            reason if reason else "null",
+                            client_id
+                        )
+                    )
+                    conn.commit()
+                    logger.info(f"Stored diagnostics in database: time={time.strftime('%Y-%m-%d %H:%M:%S')}, state={state or current_esp32_state}, client_id={client_id}")
+                except sqlite3.Error as e:
+                    logger.error(f"Failed to store diagnostics in database: {e}")
+                finally:
+                    conn.close()
+                
+                # Update globals
+                last_diagnostic_time = time.time()
+                last_diag_esp32 = data
+                curr_battery_level = battery_level
+                if timeout_status:
+                    current_esp32_state = "alert"
+                else:
+                    current_esp32_state = state if state else current_esp32_state
+                
+                # Check for wire alert
+                global last_wire_alert_time
+                if reason == "wire" and (last_wire_alert_time is None or (time.time() - last_wire_alert_time) > 5):
+                    logger.info(f"Wire alert triggered from {client_id}")
+                    publish_state(client, {"state": "alert", "client_id": "server", "reason": "wire"})
+                    current_esp32_state = "alert"
+                    last_wire_alert_time = time.time()
+                
+                # Publish to MQTT topics
+                publish_data(client, {
+                    "gps_lat": gps_lat if gps_lat is not None else "unknown",
+                    "gps_lon": gps_lon if gps_lon is not None else "unknown",
+                    "battery_level": battery_level if battery_level is not None else "unknown",
+                    "state": current_esp32_state,
+                    "reason": reason if reason else "null",
+                    "client_id": client_id
+                })
+                publish_state(client, {"state": "updated", "client_id": client_id, "reason": "null"})
+                
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success"}).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"Error processing POST /diagnostics: {e}")
+                self.send_response(400)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode('utf-8'))
+        else:
+            self.send_response(404)
+            self.end_headers()
 
 def run_http_server():
     server_address = ("0.0.0.0", int(os.getenv("PORT", 8080)))
@@ -401,7 +444,7 @@ try:
     )
     client.tls_insecure_set(False)
     client.reconnect_delay_set(min_delay=FIRST_RECONNECT_DELAY, max_delay=MAX_RECONNECT_DELAY)
-    client.enable_logger(logger)  # Enable Paho debug logging
+    client.enable_logger(logger)
     client.on_connect = on_connect
     client.on_connect_fail = on_connect_fail
     client.on_message = on_message
@@ -431,18 +474,13 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     try:
-        # Initialize SQLite database
         init_db()
-        
-        # Run HTTP server in a separate process to avoid blocking
         http_process = Process(target=run_http_server)
         http_process.start()
         
-        # Connect to broker
         logger.info(f"Connecting to {BROKER}:{PORT}")
         client.connect(str(BROKER), PORT, keepalive=120)
         
-        # Main loop for MQTT and timeout checking
         last_alert_time = None
         last_distance_alert_time = None
         last_wire_alert_time = None
@@ -450,24 +488,13 @@ def main():
         last_gps_lat = None
         last_gps_lon = None
         while not intentional_disconnect:
-            client.loop(timeout=0.1)  # Process MQTT messages
+            client.loop(timeout=0.1)
             current_time = time.time()
             
             # Update last GPS coordinates from diagnostics
-            if last_diagnostic_time is not None:
-                # Access the last message data
-                try:
-                    with open("signals.log", "r") as f:
-                        lines = f.readlines()
-                        for line in reversed(lines):
-                            if "server/diagnostics/esp32" in line:
-                                payload = line.split(": ", 1)[1].strip()
-                                data = json.loads(payload)
-                                last_gps_lat = data.get("gps_lat")
-                                last_gps_lon = data.get("gps_lon")
-                                break
-                except Exception as e:
-                    logger.error(f"Error reading signals.log for GPS: {e}")
+            if last_diagnostic_time is not None and last_diag_esp32:
+                last_gps_lat = last_diag_esp32.get("gps_lat")
+                last_gps_lon = last_diag_esp32.get("gps_lon")
             
             # Periodic statistics publishing
             publish_interval = 4 if current_esp32_state == "alert" else 10
@@ -475,17 +502,15 @@ def main():
                 publish_statistics(client)
                 last_publish_time = current_time
             
-            # Check for server/diagnostics/esp32 timeout (30 seconds)
+            # Check for diagnostics timeout (30 seconds)
             if (current_esp32_state != "unlock" and
                 last_diagnostic_time is not None and
                 (current_time - last_diagnostic_time) > 30 and
                 (last_alert_time is None or (current_time - last_alert_time) > 30)):
-                # Publish alert to esp32/alter/state
                 publish_state(client, {"state": "alert", "client_id": "server", "reason": "timeout"})
                 current_esp32_state = "alert"
                 timeout_status = True
-                # Publish alert to mobile/statistics (handled by periodic publish)
-                logger.info(f"Published alert due to no server/diagnostics/esp32 messages for over 30 seconds")
+                logger.info(f"Published alert due to no diagnostics messages for over 30 seconds")
                 last_alert_time = current_time
             
             # Check for distance-based alert (>10 meters)
@@ -494,16 +519,13 @@ def main():
                 last_gps_lat is not None and last_gps_lon is not None and
                 (last_distance_alert_time is None or (current_time - last_distance_alert_time) > 30)):
                 distance = haversine(reference_gps_lat, reference_gps_lon, last_gps_lat, last_gps_lon)
-                # print("distance is: " + str(distance))
                 if distance > 10:
-                    # Publish alert to esp32/alter/state
                     publish_state(client, {"state": "alert", "client_id": "server", "reason": "gps"})
                     current_esp32_state = "alert"
-                    # Publish alert to mobile/statistics (handled by periodic publish)
                     logger.info(f"Published alert due to movement >10 meters: distance={distance:.2f}m")
                     last_distance_alert_time = current_time
             
-            time.sleep(0.1)  # Prevent CPU overload
+            time.sleep(0.1)
         
         if http_process is not None:
             http_process.terminate()
