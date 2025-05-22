@@ -5,15 +5,11 @@ import { useFonts } from 'expo-font';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Image, StyleSheet, Text, View, Pressable, Modal, Button } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import AppNavi from './navigation';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from './navigation';
+import { useRouter } from 'expo-router';
 
 global.Buffer = Buffer;
 
 let mqttClient: mqtt.MqttClient | null = null;
-type NavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
 export default function HomeScreen() {
   // const [locationText, setLocationText] = useState('Fetching...');
@@ -48,6 +44,7 @@ export default function HomeScreen() {
   const alertBoxScale = useRef(new Animated.Value(1)).current;
   const locationBoxScale = useRef(new Animated.Value(1)).current;
 
+  const router = useRouter();
 
   const [fontsLoaded] = useFonts({
     'worksans-regular': require('../assets/fonts/worksans_regular.ttf'),
@@ -157,14 +154,6 @@ export default function HomeScreen() {
         if (callback) callback();
       });
     };
-
-  // const navigation = useNavigation<NavigationProp>();
-  // const handleMapPress = () => {
-  //     handlePressAnimation(locationBoxScale);
-  //     navigation.navigate('Map');
-  //   };
-
-
 
   const handleToggleLock = () => {
     Animated.sequence([
@@ -277,8 +266,9 @@ export default function HomeScreen() {
         </Pressable>
       )}
 
-      <Pressable onPress={() => handlePressAnimation(locationBoxScale)}> 
-      {/* <Pressable onPress={handleMapPress}> */}
+
+      <Pressable onPress={() => {handlePressAnimation(locationBoxScale);
+        router.push('/map');}}>
         <Animated.View
           style={{
             opacity: fadeAnim,
