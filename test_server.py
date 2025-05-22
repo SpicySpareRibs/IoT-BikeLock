@@ -79,6 +79,8 @@ last_wire_alert_time = None
 # Track last statistics publish time
 last_publish_time = None
 
+timeout_status = False
+
 # SQLite database setup
 DB_PATH = os.path.join(os.path.dirname(__file__), "bantaybike.db")
 
@@ -144,7 +146,7 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     global last_diagnostic_time, current_esp32_state, last_alert_time, last_distance_alert_time, last_wire_alert_time
-    global reference_gps_lat, reference_gps_lon, last_diag_esp32, curr_battery_level
+    global reference_gps_lat, reference_gps_lon, last_diag_esp32, curr_battery_level, timeout_status
     try:
         payload = msg.payload.decode('utf-8')
         # Save and log to "signals.log"
@@ -162,7 +164,11 @@ def on_message(client, userdata, msg):
             gps_lon = data.get("gps_lon")
             curr_battery_level = data.get("battery_level")
             reason = data.get("reason")
-            current_esp32_state = data.get("state") # Bugfix Latest
+
+            if timeout_status == True:
+                current_esp32_state = "alert"
+            else:
+                current_esp32_state = data.get("state") # Bugfix Latest
             
             # Validate and convert GPS coordinates
             try:
@@ -222,6 +228,7 @@ def on_message(client, userdata, msg):
                 reference_gps_lat = None  # Clear reference GPS
                 reference_gps_lon = None
                 last_diag_esp32 = None
+                timeout_status = False
             elif state == "lock":
                 # Publish alert to esp32/alter/state
                 data = last_diag_esp32
@@ -230,6 +237,7 @@ def on_message(client, userdata, msg):
                 last_alert_time = time.time()  # Reset timeout alert timer
                 last_distance_alert_time = None  # Reset distance alert timer
                 last_wire_alert_time = None  # Reset wire alert timer
+                timeout_status = False
                 # Set reference GPS to latest known coordinates
                 if last_diagnostic_time is not None and data:
                     reference_gps_lat = data.get("gps_lat", reference_gps_lat)
@@ -419,7 +427,7 @@ def signal_handler(sig, frame):
 # Main function
 def main():
     global http_process, intentional_disconnect, last_alert_time, last_distance_alert_time, last_wire_alert_time
-    global reference_gps_lat, reference_gps_lon, curr_battery_level, current_esp32_state, last_publish_time
+    global reference_gps_lat, reference_gps_lon, curr_battery_level, current_esp32_state, last_publish_time, timeout_status
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     try:
@@ -475,6 +483,7 @@ def main():
                 # Publish alert to esp32/alter/state
                 publish_state(client, {"state": "alert", "client_id": "server", "reason": "timeout"})
                 current_esp32_state = "alert"
+                timeout_status = True
                 # Publish alert to mobile/statistics (handled by periodic publish)
                 logger.info(f"Published alert due to no server/diagnostics/esp32 messages for over 30 seconds")
                 last_alert_time = current_time
