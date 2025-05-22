@@ -1,6 +1,5 @@
 import { Buffer } from 'buffer';
 import mqtt from 'mqtt';
-import * as Location from 'expo-location';
 import { useFonts } from 'expo-font';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
@@ -12,31 +11,28 @@ global.Buffer = Buffer;
 let mqttClient: mqtt.MqttClient | null = null;
 
 export default function HomeScreen() {
-  // const [locationText, setLocationText] = useState('Fetching...');
-  // const [batteryLevel, setBatteryLevel] = useState('N/A');
-  // const [isLocked, setIsLocked] = useState(true);
+  const [locationText, setLocationText] = useState('Fetching...');
+  const [batteryLevel, setBatteryLevel] = useState('N/A');
+  const [isLocked, setIsLocked] = useState(true);
 
-  // const [isAlertMode, setIsAlertMode] = useState(false);
-  // const [alertVisible, setAlertVisible] = useState(false);
-  // const [alertHeader, setAlertHeader] = useState('');
-  // const [alertBody, setAlertBody] = useState('');
-  // const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
+  const [isAlertMode, setIsAlertMode] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertHeader, setAlertHeader] = useState('');
+  const [alertBody, setAlertBody] = useState('');
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
 
   const [lowBatteryVisible, setLowBatteryVisible] = useState(false);
   const hasShownLowBatteryModal = useRef(false);
   const [fullBatteryVisible, setFullBatteryVisible] = useState(false);
   const hasShownFullBatteryModal = useRef(false);
 
+  // const [batteryLevel, setBatteryLevel] = useState('50%');
+  // const [isLocked, setIsLocked] = useState(true);
 
-
-  const [locationText, setLocationText] = useState('123 Anywhere St.\nQuezon City');
-  const [batteryLevel, setBatteryLevel] = useState('50%');
-  const [isLocked, setIsLocked] = useState(true);
-
-  const [isAlertMode, setIsAlertMode] = useState(true);
-  const [alertVisible, setAlertVisible] = useState(true);
-  const [alertHeader, setAlertHeader] = useState('Cord Cut Detected!');
-  const [alertBody, setAlertBody] = useState('Your BantayBike lock cord was cut. Your bike may be at risk. Real-time location tracking has been activated.');
+  // const [isAlertMode, setIsAlertMode] = useState(true);
+  // const [alertVisible, setAlertVisible] = useState(true);
+  // const [alertHeader, setAlertHeader] = useState('Cord Cut Detected!');
+  // const [alertBody, setAlertBody] = useState('Your BantayBike lock cord was cut. Your bike may be at risk. Real-time location tracking has been activated.');
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -53,6 +49,7 @@ export default function HomeScreen() {
   });
 
   useEffect(() => {
+    
     mqttClient = mqtt.connect('wss://ae9b16fe.ala.asia-southeast1.emqxsl.com:8084/mqtt', {
       username: 'BantayBike_Mobile',
       password: '12345678',
@@ -92,13 +89,21 @@ export default function HomeScreen() {
             setAlertVisible(false);
           }
 
-          const addr = await Location.reverseGeocodeAsync({
-            latitude: parseFloat(gps_lat),
-            longitude: parseFloat(gps_lon),
-          });
-
-          if (addr && addr[0]) {
-            setLocationText(`${addr[0].name || ''} ${addr[0].city || ''}`);
+          if (!isNaN(gps_lat) && !isNaN(gps_lon)) {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${gps_lat}&lon=${gps_lon}`
+            );
+            const json = await response.json();
+            if (json && json.address) {
+              const { road, neighbourhood, suburb, city, town, state, country } = json.address;
+              const addressParts = [road, neighbourhood, suburb, "\n" + city || town, state, country];
+              const address = addressParts.filter(Boolean).join(', ');
+              setLocationText(address || 'Unknown Location');
+            } else {
+              setLocationText('Unknown Location');
+            }
+          } else {
+            setLocationText('Invalid Coordinates');
           }
 
           if (battery_level >= 100 && !hasShownFullBatteryModal.current) {
