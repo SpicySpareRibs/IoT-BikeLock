@@ -2,3 +2,4 @@ emqxsl-ca.crt
 .env
 signals.log
 temp.py
+node_modules
